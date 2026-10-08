@@ -1,25 +1,28 @@
 // ------------------------------------------------------------------------
-// 名称：menu-view-provider.ts
+// 名称：tool-view-provider.ts
 // 说明：承载底部 Panel WebviewView，并校验资源管理器文件、工具管理和执行消息。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
 // 日期：2026-10-09
-// 备注：页面只能按菜单项 ID 请求宿主执行已有工具。
+// 备注：页面只能按工具项 ID 请求宿主执行已有工具。
 // ------------------------------------------------------------------------
 
 import { randomBytes, randomUUID } from 'node:crypto';
-import { promises as fileSystem } from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import {
-  CustomMenuItem,
+  ToolItem,
+  MAX_TOOL_ITEM_NAME_LENGTH,
   TerminalFileItem,
-  isCustomMenuItem,
-  isPathWithinFolder,
-  validateMenuItemName,
-} from './menu-item';
-import { MenuExecutor } from './menu-executor';
-import { MenuStore } from './menu-store';
+  isToolItem,
+  validateToolName,
+} from './tool-item';
+import { ToolExecutor } from './tool-executor';
+import { ToolStore } from './tool-store';
+import { resolveFileInWorkspace } from './workspace-file';
+
+/** 自动生成重名后缀时尝试的最大序号（不含）。 */
+const MAX_NAME_SUFFIX_INDEX = 1000;
 
 /** 发给 Webview 的工具项只读视图。 */
 interface ToolItemViewModel {
@@ -28,13 +31,14 @@ interface ToolItemViewModel {
   /** 工具箱中显示的名称。 */
   name: string;
   /** 工具类别。 */
-  type: CustomMenuItem['type'];
+  type: ToolItem['type'];
   /** 工具箱中显示的执行目标摘要。 */
   detail: string;
 }
 
 /** 管理底部 Panel WebviewView 的页面和受限消息。 */
-export class MenuViewProvider implements vscode.WebviewViewProvider {
+export class ToolViewProvider implements vscode.WebviewViewProvider {
+  /** 当前已解析且未销毁的面板视图。 */
   private view: vscode.WebviewView | undefined;
 
   /**
@@ -53,8 +57,8 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
    */
   constructor(
     private readonly extensionContext: vscode.ExtensionContext,
-    private readonly store: MenuStore,
-    private readonly executor: MenuExecutor,
+    private readonly store: ToolStore,
+    private readonly executor: ToolExecutor,
   ) {
     this.extensionContext.subscriptions.push(
       vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -82,12 +86,15 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
     };
     webviewView.webview.html = this.createHtml(webviewView.webview);
 
-    this.extensionContext.subscriptions.push(
+    // 监听只属于这次解析的视图，视图销毁时一并释放，避免面板反复创建后监听器累积。
+    const viewDisposables: vscode.Disposable[] = [];
+    viewDisposables.push(
       webviewView.webview.onDidReceiveMessage((message: unknown) => this.handleMessage(message)),
       webviewView.onDidDispose(() => {
         if (this.view === webviewView) {
           this.view = undefined;
         }
+        vscode.Disposable.from(...viewDisposables).dispose();
       }),
       webviewView.onDidChangeVisibility(() => {
         if (webviewView.visible) {
@@ -101,8 +108,8 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
   private createHtml(webview: vscode.Webview): string {
     const nonce = randomBytes(16).toString('base64');
     const mediaDirectory = vscode.Uri.joinPath(this.extensionContext.extensionUri, 'resources', 'media');
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'menu-view.css'));
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'menu-view.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'tool-view.css'));
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'tool-view.js'));
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -194,6 +201,7 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
     try {
       if (request.type === 'ready') {
         await this.sendState();
+        await this.sendCommands();
         return;
       }
 
@@ -212,7 +220,7 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (request.type === 'save') {
-        const item = await this.buildItem(request);
+        const item = this.buildItem(request);
         await this.store.saveItem(item);
         await this.sendState(`已保存“${item.name}”。`, 'save');
         return;
@@ -251,13 +259,18 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
   }
 
   /** 从工作区存储中查找工具项，不信任页面回传的执行目标。 */
-  private findItem(itemId: string): CustomMenuItem | undefined {
+  private findItem(itemId: string): ToolItem | undefined {
     return this.store.getItems().find((item) => item.id === itemId);
   }
 
-  /** 校验表单字段并组装宿主侧工具项。 */
-  private async buildItem(request: Record<string, unknown>): Promise<CustomMenuItem> {
+  /** 校验表单字段并组装宿主侧工具项；运行项的文件目标一律取自已保存数据。 */
+  private buildItem(request: Record<string, unknown>): ToolItem {
     const name = typeof request.name === 'string' ? request.name.trim() : '';
+    const nameError = validateToolName(name);
+    if (nameError) {
+      throw new Error(nameError);
+    }
+
     const requestedItemId = typeof request.itemId === 'string' ? request.itemId : undefined;
     const existingItem = requestedItemId
       ? this.store.getItems().find((storedItem) => storedItem.id === requestedItemId)
@@ -267,17 +280,14 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
     }
 
     const id = existingItem?.id ?? randomUUID();
-    if (existingItem && existingItem.type !== request.toolType) {
-      throw new Error('不能通过编辑将工具移动到其他类别。');
-    }
-    let item: CustomMenuItem;
+    let item: ToolItem;
 
     if (request.toolType === 'terminalFile') {
-      const target = await this.validateWorkspaceFile(
-        typeof request.workspaceFolderUri === 'string' ? request.workspaceFolderUri : '',
-        typeof request.relativePath === 'string' ? request.relativePath : '',
-      );
-      item = { id, name, type: 'terminalFile', ...target };
+      // 运行项只能通过资源管理器添加，编辑时只改名称，不采用页面回传的路径；工作区已关闭的运行项仍可改名或删除。
+      if (existingItem?.type !== 'terminalFile') {
+        throw new Error('运行项只能通过资源管理器文件右键菜单添加。');
+      }
+      item = { ...existingItem, name };
     } else if (request.toolType === 'vscodeCommand' && typeof request.commandId === 'string') {
       item = { id, name, type: 'vscodeCommand', commandId: request.commandId.trim() };
     } else if (request.toolType === 'copilotMessage' && typeof request.message === 'string') {
@@ -286,19 +296,14 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
       throw new Error('工具类型或表单字段无效。');
     }
 
-    if (!isCustomMenuItem(item)) {
+    if (!isToolItem(item)) {
       throw new Error('请完整填写工具名称和执行目标。');
-    }
-
-    const nameError = validateMenuItemName(item.name);
-    if (nameError) {
-      throw new Error(nameError);
     }
 
     return item;
   }
 
-  /** 将资源管理器提供的文件 URI 解析为当前工作区内的相对路径。 */
+  /** 将资源管理器提供的文件 URI 解析为当前本地工作区内的相对路径；允许任意扩展名，拒绝目录和越界路径。 */
   private async resolveWorkspaceFile(uri: vscode.Uri): Promise<Pick<TerminalFileItem, 'workspaceFolderUri' | 'relativePath'>> {
     if (uri.scheme !== 'file') {
       throw new Error('只能添加本地工作区中的文件。');
@@ -309,34 +314,8 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
       throw new Error('请从当前打开的本地工作区添加文件。');
     }
 
-    return this.validateWorkspaceFile(workspaceFolder.uri.toString(), path.relative(workspaceFolder.uri.fsPath, uri.fsPath));
-  }
-
-  /** 校验文件属于当前本地工作区；允许任意扩展名，拒绝目录和越界路径。 */
-  private async validateWorkspaceFile(workspaceFolderUri: string, relativePath: string): Promise<Pick<TerminalFileItem, 'workspaceFolderUri' | 'relativePath'>> {
-    const workspaceFolder = this.findLocalWorkspace(workspaceFolderUri);
-    if (!workspaceFolder || relativePath.trim().length === 0) {
-      throw new Error('请从当前本地工作区文件中添加运行项。');
-    }
-
-    const rootPath = await fileSystem.realpath(workspaceFolder.uri.fsPath);
-    const candidatePath = path.resolve(rootPath, relativePath);
-    if (!isPathWithinFolder(rootPath, candidatePath)) {
-      throw new Error('文件路径超出了工作区范围。');
-    }
-
-    let realFilePath: string;
-    try {
-      realFilePath = await fileSystem.realpath(candidatePath);
-    } catch {
-      throw new Error('文件不存在，或无法读取。');
-    }
-
-    const fileInfo = await fileSystem.stat(realFilePath);
-    if (!isPathWithinFolder(rootPath, realFilePath) || !fileInfo.isFile()) {
-      throw new Error('只能添加工作区中的文件，不能添加文件夹。');
-    }
-
+    const relativePath = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
+    const { rootPath, realFilePath } = await resolveFileInWorkspace(workspaceFolder.uri.fsPath, relativePath);
     return {
       workspaceFolderUri: workspaceFolder.uri.toString(),
       relativePath: path.relative(rootPath, realFilePath).replace(/\\/g, '/'),
@@ -345,14 +324,14 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
 
   /** 为右键添加的文件生成类别内不重复、且不超过名称长度上限的显示名。 */
   private allocateToolName(baseName: string, usedNames: Set<string>): string {
-    const trimmed = baseName.trim().slice(0, 80) || '未命名文件';
+    const trimmed = baseName.trim().slice(0, MAX_TOOL_ITEM_NAME_LENGTH) || '未命名文件';
     if (!usedNames.has(trimmed.toLocaleLowerCase())) {
       return trimmed;
     }
 
-    for (let index = 2; index < 1000; index += 1) {
+    for (let index = 2; index < MAX_NAME_SUFFIX_INDEX; index += 1) {
       const suffix = ` (${index})`;
-      const candidate = `${trimmed.slice(0, Math.max(1, 80 - suffix.length))}${suffix}`;
+      const candidate = `${trimmed.slice(0, Math.max(1, MAX_TOOL_ITEM_NAME_LENGTH - suffix.length))}${suffix}`;
       if (!usedNames.has(candidate.toLocaleLowerCase())) {
         return candidate;
       }
@@ -372,24 +351,30 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
         throw new Error('未获取到文件，请从资源管理器文件右键菜单添加。');
       }
 
-      const usedNames = new Set(
-        this.store.getItems()
-          .filter((item) => item.type === 'terminalFile')
-          .map((item) => item.name.trim().toLocaleLowerCase()),
-      );
+      const terminalItems = this.store.getItems().filter((item): item is TerminalFileItem => item.type === 'terminalFile');
+      const usedNames = new Set(terminalItems.map((item) => item.name.trim().toLocaleLowerCase()));
+      // 以“工作区 + 相对路径”标识文件，值为已有运行项名称，用于拒绝重复添加。
+      const knownTargets = new Map(terminalItems.map((item) => [`${item.workspaceFolderUri}|${item.relativePath}`, item.name]));
       const addedNames: string[] = [];
       const failures: string[] = [];
       for (const resource of resources) {
         try {
           const target = await this.resolveWorkspaceFile(resource);
+          const targetKey = `${target.workspaceFolderUri}|${target.relativePath}`;
+          const existingName = knownTargets.get(targetKey);
+          if (existingName !== undefined) {
+            throw new Error(`文件“${path.basename(target.relativePath)}”已在运行项“${existingName}”中，不能重复添加。`);
+          }
+
           const name = this.allocateToolName(path.basename(target.relativePath), usedNames);
           usedNames.add(name.toLocaleLowerCase());
           const item: TerminalFileItem = { id: randomUUID(), name, type: 'terminalFile', ...target };
-          const nameError = validateMenuItemName(item.name);
+          const nameError = validateToolName(item.name);
           if (nameError) {
             throw new Error(nameError);
           }
           await this.store.saveItem(item);
+          knownTargets.set(targetKey, name);
           addedNames.push(name);
         } catch (error) {
           failures.push(error instanceof Error ? error.message : String(error));
@@ -409,20 +394,25 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  /** 按 URI 查找当前打开的本地工作区。 */
-  private findLocalWorkspace(workspaceFolderUri: string): vscode.WorkspaceFolder | undefined {
-    return vscode.workspace.workspaceFolders?.find((folder) =>
-      folder.uri.scheme === 'file' && folder.uri.toString() === workspaceFolderUri,
-    );
+  /** 将已注册的命令 ID 发送给面板作为输入建议；列表很大，只在页面就绪时发送，不随每次状态刷新重复传输。 */
+  private async sendCommands(): Promise<void> {
+    const view = this.view;
+    if (!view) {
+      return;
+    }
+
+    const commands = await vscode.commands.getCommands(true);
+    await view.webview.postMessage({ type: 'commands', commands });
   }
 
-  /** 将类别列表和命令建议发送给面板。 */
+  /** 将工具列表和操作反馈发送给面板。 */
   private async sendState(
     message?: string,
     operation?: 'save' | 'delete' | 'reorder',
     level: 'success' | 'error' | 'info' = operation ? 'success' : 'info',
   ): Promise<void> {
-    if (!this.view) {
+    const view = this.view;
+    if (!view) {
       return;
     }
 
@@ -437,11 +427,10 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
             ? item.commandId
             : item.message,
       }));
-      const commands = await vscode.commands.getCommands();
-      await this.view.webview.postMessage({ type: 'state', items, commands, message, operation, level });
+      await view.webview.postMessage({ type: 'state', items, message, operation, level });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      await this.view.webview.postMessage({ type: 'error', message: detail });
+      await view.webview.postMessage({ type: 'error', message: detail });
     }
   }
 }

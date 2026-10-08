@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：menu-store.ts
+// 名称：tool-store.ts
 // 说明：通过 VS Code 工作区状态保存、迁移和维护三类工具项。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -10,15 +10,15 @@
 import type { Memento } from 'vscode';
 import {
   CopilotMessageItem,
-  CustomMenuItem,
+  ToolItem,
   TerminalFileItem,
   VsCodeCommandItem,
-  isCustomMenuItem,
-} from './menu-item';
+  isToolItem,
+} from './tool-item';
 
 /** 当前版本的工作区工具数据键。 */
 const STORE_KEY = 'workspaceToolbox.tools.v2';
-/** 上一版本平铺菜单项的工作区存储键。 */
+/** 上一版本平铺工具项的工作区存储键。 */
 const LEGACY_STORE_KEY = 'workspaceToolbox.customMenuItems.v1';
 
 /** 当前版本按类别保存的工具集合。 */
@@ -56,10 +56,10 @@ interface LegacyCommandItem {
 }
 
 /** 管理当前工作区的三类自定义工具项。 */
-export class MenuStore {
+export class ToolStore {
   /**
-  * 创建工作区工具存储。
-  * @param workspaceState VS Code 工作区状态存储。
+   * 创建工作区工具存储。
+   * @param workspaceState VS Code 工作区状态存储。
    */
   constructor(private readonly workspaceState: Memento) {}
 
@@ -68,7 +68,7 @@ export class MenuStore {
    * @returns 按类别及类别内顺序排列的工具项副本。
    * @throws 存储数据损坏或包含重复项时抛出错误。
    */
-  public getItems(): CustomMenuItem[] {
+  public getItems(): ToolItem[] {
     const storedTools = this.readStoredTools();
     return [...storedTools.terminalFiles, ...storedTools.vscodeCommands, ...storedTools.copilotMessages];
   }
@@ -97,17 +97,12 @@ export class MenuStore {
    * @returns 写入完成的异步操作。
    * @throws 名称或 ID 重复、数据无效时抛出错误。
    */
-  public async saveItem(item: CustomMenuItem): Promise<void> {
+  public async saveItem(item: ToolItem): Promise<void> {
     const storedTools = this.readStoredTools();
     const existingItems = this.getItemsFrom(storedTools);
     this.ensureItemIsUnique(item, existingItems);
 
     const nextTools = this.cloneStoredTools(storedTools);
-    const existingItem = existingItems.find((storedItem) => storedItem.id === item.id);
-    if (existingItem && existingItem.type !== item.type) {
-      throw new Error('不能通过编辑将工具项移动到其他类别。');
-    }
-
     switch (item.type) {
       case 'terminalFile':
         nextTools.terminalFiles = this.upsertItem(nextTools.terminalFiles, item);
@@ -124,8 +119,8 @@ export class MenuStore {
   }
 
   /**
-   * 删除指定菜单项。
-   * @param itemId 要删除的菜单项 ID。
+   * 删除指定工具项。
+   * @param itemId 要删除的工具项 ID。
    * @returns 写入完成的异步操作。
    */
   public async removeItem(itemId: string): Promise<void> {
@@ -143,7 +138,7 @@ export class MenuStore {
    * @returns 顺序写入工作区状态后的异步操作。
    * @throws ID 集合与类别当前内容不一致或存储数据无效时抛出错误。
    */
-  public async reorderItems(type: CustomMenuItem['type'], itemIds: string[]): Promise<void> {
+  public async reorderItems(type: ToolItem['type'], itemIds: string[]): Promise<void> {
     const storedTools = this.cloneStoredTools(this.readStoredTools());
     switch (type) {
       case 'terminalFile':
@@ -214,11 +209,11 @@ export class MenuStore {
     const storedTools = value as Record<string, unknown>;
     return storedTools.version === 2
       && Array.isArray(storedTools.terminalFiles)
-      && storedTools.terminalFiles.every((item) => isCustomMenuItem(item) && item.type === 'terminalFile')
+      && storedTools.terminalFiles.every((item) => isToolItem(item) && item.type === 'terminalFile')
       && Array.isArray(storedTools.vscodeCommands)
-      && storedTools.vscodeCommands.every((item) => isCustomMenuItem(item) && item.type === 'vscodeCommand')
+      && storedTools.vscodeCommands.every((item) => isToolItem(item) && item.type === 'vscodeCommand')
       && Array.isArray(storedTools.copilotMessages)
-      && storedTools.copilotMessages.every((item) => isCustomMenuItem(item) && item.type === 'copilotMessage');
+      && storedTools.copilotMessages.every((item) => isToolItem(item) && item.type === 'copilotMessage');
   }
 
   /** 判断旧版本的脚本或命令结构是否可以无损迁移。 */
@@ -248,8 +243,8 @@ export class MenuStore {
   }
 
   /** 检查名称按类别唯一，且 ID 在全部类别中唯一。 */
-  private ensureItemIsUnique(item: CustomMenuItem, existingItems: CustomMenuItem[]): void {
-    if (!isCustomMenuItem(item)) {
+  private ensureItemIsUnique(item: ToolItem, existingItems: ToolItem[]): void {
+    if (!isToolItem(item)) {
       throw new Error('工具项数据无效，无法保存。');
     }
 
@@ -268,12 +263,12 @@ export class MenuStore {
     }
   }
 
-  /** 校验迁移数据没有重复 ID 或类别内重名。 */
-  private assertNoDuplicateItems(items: CustomMenuItem[]): void {
+  /** 校验已保存或迁移的数据没有重复 ID 或类别内重名。 */
+  private assertNoDuplicateItems(items: ToolItem[]): void {
     const seenIds = new Set<string>();
     for (const item of items) {
       if (seenIds.has(item.id)) {
-        throw new Error('旧版工具数据包含重复 ID，未覆盖原数据。');
+        throw new Error('工具数据包含重复 ID，未覆盖原数据。');
       }
 
       seenIds.add(item.id);
@@ -297,12 +292,12 @@ export class MenuStore {
   }
 
   /** 将分类存储展开为统一的只读遍历列表。 */
-  private getItemsFrom(storedTools: StoredTools): CustomMenuItem[] {
+  private getItemsFrom(storedTools: StoredTools): ToolItem[] {
     return [...storedTools.terminalFiles, ...storedTools.vscodeCommands, ...storedTools.copilotMessages];
   }
 
   /** 按稳定 ID 替换原项或将新项追加至类别末尾。 */
-  private upsertItem<T extends CustomMenuItem>(items: T[], item: T): T[] {
+  private upsertItem<T extends ToolItem>(items: T[], item: T): T[] {
     const itemIndex = items.findIndex((storedItem) => storedItem.id === item.id);
     if (itemIndex === -1) {
       return [...items, item];
@@ -314,7 +309,7 @@ export class MenuStore {
   }
 
   /** 只接受该类别中每个现有 ID 恰好出现一次的完整顺序。 */
-  private reorderCategory<T extends CustomMenuItem>(items: T[], itemIds: string[]): T[] {
+  private reorderCategory<T extends ToolItem>(items: T[], itemIds: string[]): T[] {
     const itemsById = new Map(items.map((item) => [item.id, item]));
     const uniqueIds = new Set(itemIds);
     if (itemIds.length !== items.length

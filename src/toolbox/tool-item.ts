@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：menu-item.ts
+// 名称：tool-item.ts
 // 说明：定义三类工具项结构，并提供输入和路径安全校验。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -8,6 +8,9 @@
 // ------------------------------------------------------------------------
 
 import * as path from 'node:path';
+
+/** PowerShell 视为单引号的字符：ASCII 单引号及 U+2018、U+2019、U+201A、U+201B 四种弯引号。 */
+const POWERSHELL_SINGLE_QUOTES = /['\u2018\u2019\u201A\u201B]/g;
 
 /** 从资源管理器添加并在终端运行的本地工作区文件工具项。 */
 export interface TerminalFileItem {
@@ -48,7 +51,7 @@ export interface CopilotMessageItem {
 }
 
 /** 可由工具箱运行的三类自定义项，按类型收窄执行目标。 */
-export type CustomMenuItem = TerminalFileItem | VsCodeCommandItem | CopilotMessageItem;
+export type ToolItem = TerminalFileItem | VsCodeCommandItem | CopilotMessageItem;
 
 /** 工具项名称的最大字符数。 */
 export const MAX_TOOL_ITEM_NAME_LENGTH = 80;
@@ -58,7 +61,7 @@ export const MAX_TOOL_ITEM_NAME_LENGTH = 80;
  * @param value 待检查的未知值。
  * @returns 值符合终端文件、VS Code 命令或 Copilot 消息结构时为 true。
  */
-export function isCustomMenuItem(value: unknown): value is CustomMenuItem {
+export function isToolItem(value: unknown): value is ToolItem {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -88,13 +91,13 @@ export function isCustomMenuItem(value: unknown): value is CustomMenuItem {
 
 /**
  * 检查工具项名称是否合法。
- * @param name 用户输入的菜单名称。
+ * @param name 用户输入的工具名称。
  * @returns 输入有效时返回 undefined，否则返回错误说明。
  */
-export function validateMenuItemName(name: string): string | undefined {
+export function validateToolName(name: string): string | undefined {
   const normalizedName = name.trim();
   if (normalizedName.length === 0) {
-    return '请输入菜单项名称。';
+    return '请输入工具名称。';
   }
 
   if (normalizedName.length > MAX_TOOL_ITEM_NAME_LENGTH) {
@@ -119,10 +122,10 @@ export function isPathWithinFolder(folderPath: string, candidatePath: string): b
 
 /**
  * 将路径编码为 PowerShell 单引号字符串字面量。
- * @param filePath 待编码的文件路径。
+ * @param filePath 待编码的文件或目录路径。
  * @returns 可直接嵌入 PowerShell 命令的带引号路径。
  */
 export function quotePowerShellPath(filePath: string): string {
-  // PowerShell 单引号字面量用两个连续单引号表示路径中的单引号。
-  return `'${filePath.replace(/'/g, "''")}'`;
+  // PowerShell 把弯引号也当作单引号，必须与 ASCII 单引号一样重复一次，否则 “’” 会提前结束字符串。
+  return `'${filePath.replace(POWERSHELL_SINGLE_QUOTES, (quote) => `${quote}${quote}`)}'`;
 }

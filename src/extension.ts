@@ -8,12 +8,12 @@
 // ------------------------------------------------------------------------
 
 import * as vscode from 'vscode';
-import { MenuExecutor } from './menu/menu-executor';
-import { MenuStore } from './menu/menu-store';
-import { MenuViewProvider } from './menu/menu-view-provider';
+import { ToolExecutor } from './toolbox/tool-executor';
+import { ToolStore } from './toolbox/tool-store';
+import { ToolViewProvider } from './toolbox/tool-view-provider';
 
 /** 底部 Panel WebviewView 的标识。 */
-const MENU_VIEW_ID = 'workspaceToolbox.menuView';
+const TOOL_VIEW_ID = 'workspaceToolbox.menuView';
 /** 底部工具箱容器的标识，用于从状态栏打开对应 Panel。 */
 const PANEL_CONTAINER_ID = 'workspaceToolboxPanel';
 /** 状态栏图标使用的扩展命令 ID。 */
@@ -29,15 +29,15 @@ const STATUS_BAR_PRIORITY = Number.MAX_SAFE_INTEGER;
  * @remarks 面板管理、列表与工具执行均通过 Webview 消息处理。
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const store = new MenuStore(context.workspaceState);
+  const store = new ToolStore(context.workspaceState);
   try {
     await store.migrateLegacyItems();
   } catch {
     // 面板读取时会将存储错误显示在 Webview，不阻止工具箱打开。
   }
 
-  const executor = new MenuExecutor();
-  const menuViewProvider = new MenuViewProvider(context, store, executor);
+  const executor = new ToolExecutor();
+  const toolViewProvider = new ToolViewProvider(context, store, executor);
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, STATUS_BAR_PRIORITY);
   statusBarItem.text = '$(workspace-toolbox-logo)';
   statusBarItem.name = '工具箱';
@@ -48,19 +48,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     statusBarItem,
-    vscode.window.registerWebviewViewProvider(MENU_VIEW_ID, menuViewProvider),
+    vscode.window.registerWebviewViewProvider(TOOL_VIEW_ID, toolViewProvider),
     vscode.commands.registerCommand(OPEN_TOOLS_COMMAND_ID, async () => {
-      if (menuViewProvider.isVisible) {
+      if (toolViewProvider.isVisible) {
         await vscode.commands.executeCommand('workbench.action.closePanel');
         return;
       }
 
       await vscode.commands.executeCommand(`workbench.view.extension.${PANEL_CONTAINER_ID}`);
     }),
-    vscode.commands.registerCommand(ADD_WORKSPACE_FILE_COMMAND_ID, async (resource: vscode.Uri | vscode.Uri[] | undefined) => {
-      await vscode.commands.executeCommand(`workbench.view.extension.${PANEL_CONTAINER_ID}`);
-      const resources = Array.isArray(resource) ? resource : resource ? [resource] : [];
-      await menuViewProvider.addWorkspaceFiles(resources);
-    }),
+    vscode.commands.registerCommand(
+      ADD_WORKSPACE_FILE_COMMAND_ID,
+      async (resource: vscode.Uri | undefined, selectedResources: vscode.Uri[] | undefined) => {
+        await vscode.commands.executeCommand(`workbench.view.extension.${PANEL_CONTAINER_ID}`);
+        // 资源管理器右键命令的第二个参数是全部选中项；多选时一并添加，单选时等同被点击的资源。
+        const resources = selectedResources && selectedResources.length > 0 ? selectedResources : resource ? [resource] : [];
+        await toolViewProvider.addWorkspaceFiles(resources);
+      },
+    ),
   );
 }

@@ -1,16 +1,17 @@
 /*
  * ------------------------------------------------------------------------
- * 名称：menu-view.css
+ * 名称：tool-view.css
  * 说明：为底部工具面板提供紧凑布局；编辑表单在对话层内单行横向排列。
  * 作者：Lion
  * 邮箱：chengbin@3578.cn
  * 日期：2026-10-09
- * 备注：菜单状态跟随 VS Code 明暗主题。
+ * 备注：工具箱状态跟随 VS Code 明暗主题。
  * ------------------------------------------------------------------------
  */
 
 :root {
   height: 100%;
+  /* 页面背景令牌别名，供 color-mix 公式引用。 */
   --bg: var(--vscode-sideBar-background);
 }
 
@@ -111,7 +112,7 @@ button:hover {
 }
 
 button:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
+  outline: 1px solid var(--vscode-focusBorder, rgb(0,120,212));
   outline-offset: 1px;
 }
 
@@ -138,7 +139,7 @@ button:focus-visible {
 }
 
 .secondary-button {
-  color: var(--vscode-button-secondaryForeground);
+  color: rgba(237,237,237,0.92);
   background: rgba(255,255,255,0.08);
 }
 
@@ -151,8 +152,16 @@ body.vscode-light .secondary-button {
   background: rgba(255,255,255,0.12);
 }
 
+.secondary-button:active {
+  background: rgba(255,255,255,0.16);
+}
+
 body.vscode-light .secondary-button:hover {
   background: rgba(90,90,90,0.20);
+}
+
+body.vscode-light .secondary-button:active {
+  background: rgba(90,90,90,0.26);
 }
 
 .danger-button {
@@ -164,12 +173,20 @@ body.vscode-light .secondary-button:hover {
   background: rgb(180,58,51);
 }
 
+.danger-button:active {
+  background: rgb(141,40,35);
+}
+
 body.vscode-light .danger-button {
   background: rgb(169,48,41);
 }
 
 body.vscode-light .danger-button:hover {
   background: rgb(151,43,37);
+}
+
+body.vscode-light .danger-button:active {
+  background: rgb(132,37,31);
 }
 
 .icon {
@@ -223,7 +240,7 @@ body.vscode-light .danger-button:hover {
   bottom: 4px;
   width: 2px;
   border-radius: 1px;
-  background: var(--vscode-focusBorder);
+  background: var(--vscode-focusBorder, rgb(0,120,212));
   content: '';
 }
 
@@ -486,13 +503,13 @@ body.vscode-light .tool-dialog textarea {
 .tool-dialog input:focus,
 .tool-dialog select:focus,
 .tool-dialog textarea:focus {
-  border-color: var(--vscode-focusBorder);
-  outline: 1px solid var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder, rgb(0,120,212));
+  outline: 1px solid var(--vscode-focusBorder, rgb(0,120,212));
   outline-offset: 0;
 }
 
 .tool-dialog button:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
+  outline: 1px solid var(--vscode-focusBorder, rgb(0,120,212));
   outline-offset: 1px;
 }
 

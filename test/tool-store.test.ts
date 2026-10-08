@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：menu-store.test.ts
+// 名称：tool-store.test.ts
 // 说明：验证三类工具的工作区存储、迁移、更新顺序与损坏数据保护。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Memento } from 'vscode';
-import { MenuStore } from '../src/menu/menu-store';
+import { ToolStore } from '../src/toolbox/tool-store';
 
 /** 建立可在单元测试中检查写入结果的工作区状态替身。 */
 function createWorkspaceState(initialValues: Record<string, unknown> = {}): {
@@ -49,7 +49,7 @@ test('migrates legacy scripts and commands into separate categories', async () =
       { id: 'command-1', name: '重载', type: 'command', commandId: 'workbench.action.reloadWindow' },
     ],
   });
-  const store = new MenuStore(state);
+  const store = new ToolStore(state);
 
   await store.migrateLegacyItems();
 
@@ -75,7 +75,7 @@ test('migrates legacy scripts and commands into separate categories', async () =
 
 test('updates an item in place and deletes it from its category', async () => {
   const { state } = createWorkspaceState();
-  const store = new MenuStore(state);
+  const store = new ToolStore(state);
   await store.saveItem({ id: 'first', name: '第一项', type: 'vscodeCommand', commandId: 'first.command' });
   await store.saveItem({ id: 'second', name: '第二项', type: 'vscodeCommand', commandId: 'second.command' });
   await store.saveItem({ id: 'first', name: '修改后', type: 'vscodeCommand', commandId: 'updated.command' });
@@ -87,7 +87,7 @@ test('updates an item in place and deletes it from its category', async () => {
 
 test('reorders items within a category and rejects incomplete ID sequences', async () => {
   const { state } = createWorkspaceState();
-  const store = new MenuStore(state);
+  const store = new ToolStore(state);
   await store.saveItem({ id: 'first', name: '第一项', type: 'vscodeCommand', commandId: 'first.command' });
   await store.saveItem({ id: 'second', name: '第二项', type: 'vscodeCommand', commandId: 'second.command' });
   await store.saveItem({ id: 'message', name: '消息', type: 'copilotMessage', message: '说明' });
@@ -104,12 +104,12 @@ test('reorders items within a category and rejects incomplete ID sequences', asy
 test('keeps corrupt stored values untouched and rejects duplicate names per category', async () => {
   const corrupt = { version: 2, terminalFiles: 'invalid' };
   const { state, values } = createWorkspaceState({ 'workspaceToolbox.tools.v2': corrupt });
-  const store = new MenuStore(state);
+  const store = new ToolStore(state);
 
   assert.throws(() => store.getItems(), /未覆盖原数据/);
   assert.equal(values.get('workspaceToolbox.tools.v2'), corrupt);
 
-  const healthyStore = new MenuStore(createWorkspaceState().state);
+  const healthyStore = new ToolStore(createWorkspaceState().state);
   await healthyStore.saveItem({ id: 'first', name: 'Build', type: 'vscodeCommand', commandId: 'first.command' });
   await assert.rejects(
     healthyStore.saveItem({ id: 'second', name: ' build ', type: 'vscodeCommand', commandId: 'second.command' }),

@@ -2,7 +2,7 @@
   "name": "workspace-toolbox",
   "displayName": "VS Code 工具箱",
   "description": "在底部工具箱管理工作区文件、VS Code 命令和 Copilot 消息。",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "chengbin",
   "license": "Apache-2.0",
   "icon": "resources/icon.png",
@@ -40,6 +40,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "workspaceToolbox.addWorkspaceFile",
+          "when": "false"
+        }
+      ],
       "explorer/context": [
         {
           "command": "workspaceToolbox.addWorkspaceFile",

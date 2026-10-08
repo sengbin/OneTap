@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：menu-view.js
+// 名称：tool-view.js
 // 说明：渲染三类工具列表和表单，运行文件通过资源管理器右键菜单添加。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -7,6 +7,27 @@
 // 备注：不在 Webview 中执行任意命令或脚本。
 // ------------------------------------------------------------------------
 
+/** SVG 元素的命名空间。 */
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+/** 三个固定工具类别及其页签顺序。 */
+const TOOL_TYPES = ['terminalFile', 'vscodeCommand', 'copilotMessage'];
+/** 面板使用的工具类别显示名称。 */
+const TYPE_LABELS = {
+  terminalFile: '运行',
+  vscodeCommand: '命令',
+  copilotMessage: '消息',
+};
+/** 面板中的所有状态消息保留的秒数。 */
+const STATUS_COUNTDOWN_SECONDS = 3;
+/** Tabler Outline 图标路径，集中维护于单一脚本文件。 */
+const ICON_PATHS = {
+  add: ['M12 5v14', 'M5 12h14'],
+  edit: ['M7 7h-1a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-1', 'M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z', 'M16 5l3 3'],
+  delete: ['M4 7l16 0', 'M10 11l0 6', 'M14 11l0 6', 'M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12', 'M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3'],
+  message: ['M8 9h8', 'M8 13h6', 'M3 20l1.65-4.65a8 8 0 1 1 3.4 3.4L3 20'],
+};
+
+/** VS Code 提供的 Webview 宿主通信接口。 */
 const vscode = acquireVsCodeApi();
 const statusMessage = document.getElementById('status-message');
 const statusText = document.getElementById('status-text');
@@ -20,29 +41,23 @@ const formError = document.getElementById('form-error');
 const confirmError = document.getElementById('confirm-error');
 const commandSuggestions = document.getElementById('command-suggestions');
 const filePathDisplay = document.getElementById('file-path');
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-/** 三个固定工具类别及其页签顺序。 */
-const TOOL_TYPES = ['terminalFile', 'vscodeCommand', 'copilotMessage'];
-/** 面板使用的工具类别显示名称。 */
-const TYPE_LABELS = {
-  terminalFile: '运行',
-  vscodeCommand: '命令',
-  copilotMessage: '消息',
-};
-/** 面板中的所有状态消息保留的秒数。 */
-const STATUS_COUNTDOWN_SECONDS = 3;
-
+/** 各类别工具胶囊的容器，按类别标识索引。 */
 const toolOptions = Object.fromEntries(TOOL_TYPES.map((type) => [
   type,
   document.getElementById(`tools-${type}`),
 ]));
 
+/** 宿主最近一次推送的全部工具项。 */
 let currentItems = [];
+/** 正在编辑的工具项 ID；新增时为空。 */
 let editingItemId;
+/** 表单当前对应的工具类别。 */
 let currentToolType = 'terminalFile';
+/** 等待删除确认的工具项 ID。 */
 let pendingDeleteId;
+/** 打开对话层前获得焦点的控件，关闭后用于恢复焦点。 */
 let previousFocus;
-let existingWorkspaceUri = '';
+/** 编辑运行项时只读展示的相对文件路径。 */
 let existingRelativePath = '';
 /** 状态消息的自动隐藏计时器。 */
 let statusCountdownTimer;
@@ -50,14 +65,6 @@ let statusCountdownTimer;
 let draggedTool;
 /** 键盘调整顺序后需要恢复焦点的工具项 ID。 */
 let pendingReorderFocusId;
-
-/** Tabler Outline 图标路径，集中维护于单一脚本文件。 */
-const ICON_PATHS = {
-  add: ['M12 5v14', 'M5 12h14'],
-  edit: ['M7 7h-1a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-1', 'M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z', 'M16 5l3 3'],
-  delete: ['M4 7l16 0', 'M10 11l0 6', 'M14 11l0 6', 'M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12', 'M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3'],
-  message: ['M8 9h8', 'M8 13h6', 'M3 20l1.65-4.65a8 8 0 1 1 3.4 3.4L3 20'],
-};
 
 const statusIcon = createIcon('message');
 statusIcon.classList.add('status-icon');
@@ -109,12 +116,12 @@ window.addEventListener('message', (event) => {
     currentItems = message.items;
     renderItems();
     restoreReorderFocus();
-    renderCommands(Array.isArray(message.commands) ? message.commands : []);
     showStatus(message.message, message.level);
-    if (message.message && !message.operation && !toolDialog.hidden) {
+    // 只有错误级反馈才写入对话层，否则其他操作的成功提示会被当作表单错误显示。
+    if (message.message && message.level === 'error' && !message.operation && !toolDialog.hidden) {
       showFormError(message.message);
     }
-    if (message.message && !message.operation && !confirmDialog.hidden) {
+    if (message.message && message.level === 'error' && !message.operation && !confirmDialog.hidden) {
       showConfirmError(message.message);
     }
     if (message.operation === 'save') {
@@ -122,9 +129,13 @@ window.addEventListener('message', (event) => {
     } else if (message.operation === 'delete') {
       closeConfirmDialog();
     }
+  } else if (message.type === 'commands' && Array.isArray(message.commands)) {
+    renderCommands(message.commands);
   } else if (message.type === 'editItem' && message.item) {
     openToolDialog(message.item);
   } else if (message.type === 'error') {
+    // 状态推送失败时不会再有排序结果，需解除排序等待标记，否则后续键盘排序会被一直忽略。
+    restoreReorderFocus();
     showStatus(message.message, 'error');
     if (!toolDialog.hidden) {
       showFormError(message.message);
@@ -319,7 +330,6 @@ function openToolDialog(item, requestedType) {
   document.getElementById('tool-name').value = item?.name ?? '';
   document.getElementById('command-id').value = item?.commandId ?? '';
   document.getElementById('copilot-message').value = item?.message ?? '';
-  existingWorkspaceUri = item?.type === 'terminalFile' ? item.workspaceFolderUri ?? '' : '';
   existingRelativePath = item?.type === 'terminalFile' ? item.relativePath ?? '' : '';
   filePathDisplay.textContent = existingRelativePath || '请从资源管理器文件右键菜单添加';
   filePathDisplay.title = existingRelativePath;
@@ -357,12 +367,11 @@ function saveTool() {
 
   const request = { type: 'save', toolType: currentToolType, itemId: editingItemId, name };
   if (currentToolType === 'terminalFile') {
-    if (!existingRelativePath || !existingWorkspaceUri) {
+    // 运行项的文件目标由宿主按 ID 取自存储，页面只提交名称。
+    if (!editingItemId) {
       showFormError('请从资源管理器文件右键菜单添加运行项。');
       return;
     }
-    request.workspaceFolderUri = existingWorkspaceUri;
-    request.relativePath = existingRelativePath;
   } else if (currentToolType === 'vscodeCommand') {
     request.commandId = document.getElementById('command-id').value.trim();
   } else {

@@ -12,11 +12,11 @@ import { promises as fileSystem } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { resolveFileInWorkspace } from '../src/workkit/workspace-file';
+import { resolveFileInWorkspace } from '../src/onetap/workspace-file';
 
 /** 创建含一个脚本文件和一个子文件夹的临时工作区，并在回调结束后删除。 */
 async function withWorkspace(run: (root: string, outsideFile: string) => Promise<void>): Promise<void> {
-  const base = await fileSystem.mkdtemp(path.join(os.tmpdir(), 'workkit-'));
+  const base = await fileSystem.mkdtemp(path.join(os.tmpdir(), 'onetap-'));
   try {
     const root = path.join(base, 'workspace');
     await fileSystem.mkdir(path.join(root, 'folder'), { recursive: true });

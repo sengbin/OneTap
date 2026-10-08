@@ -15,7 +15,7 @@ import {
   isPathWithinFolder,
   quotePowerShellPath,
   validateShortcutName,
-} from '../src/workkit/shortcut-item';
+} from '../src/onetap/shortcut-item';
 
 test('accepts valid items from all three shortcut categories', () => {
   assert.equal(isShortcutItem({

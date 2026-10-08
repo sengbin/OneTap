@@ -1,6 +1,6 @@
 {
-  "name": "workkit",
-  "displayName": "WorkKit",
+  "name": "onetap",
+  "displayName": "OneTap",
   "description": "Run workspace files, execute VS Code commands, and open saved Copilot Chat prompts from a compact panel.",
   "version": "0.1.0",
   "publisher": "chengbin",
@@ -25,12 +25,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sengbin/WorkKit.git"
+    "url": "https://github.com/sengbin/OneTap.git"
   },
   "bugs": {
-    "url": "https://github.com/sengbin/WorkKit/issues"
+    "url": "https://github.com/sengbin/OneTap/issues"
   },
-  "homepage": "https://github.com/sengbin/WorkKit#readme",
+  "homepage": "https://github.com/sengbin/OneTap#readme",
   "main": "./out/src/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -38,30 +38,30 @@
   "contributes": {
     "commands": [
       {
-        "command": "workKit.addWorkspaceFile",
+        "command": "oneTap.addWorkspaceFile",
         "title": "添加到工具箱运行项"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "workKit.addWorkspaceFile",
+          "command": "oneTap.addWorkspaceFile",
           "when": "false"
         }
       ],
       "explorer/context": [
         {
-          "command": "workKit.addWorkspaceFile",
+          "command": "oneTap.addWorkspaceFile",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "7_modification"
         }
       ]
     },
     "icons": {
-      "workkit-logo": {
+      "onetap-logo": {
         "description": "工具箱状态栏图标",
         "default": {
-          "fontPath": "./resources/workkit-icons.woff",
+          "fontPath": "./resources/onetap-icons.woff",
           "fontCharacter": "\\E001"
         }
       }
@@ -69,17 +69,17 @@
     "viewsContainers": {
       "panel": [
         {
-          "id": "workKitPanel",
+          "id": "oneTapPanel",
           "title": "工具箱",
           "icon": "resources/logo.svg"
         }
       ]
     },
     "views": {
-      "workKitPanel": [
+      "oneTapPanel": [
         {
           "type": "webview",
-          "id": "workKit.shortcutView",
+          "id": "oneTap.shortcutView",
           "name": "工具箱",
           "icon": "resources/logo.svg"
         }

@@ -1,6 +1,6 @@
 // ------------------------------------------------------------------------
 // 名称：shortcut-store.ts
-// 说明：通过 VS Code 工作区状态保存、迁移和维护三类工具项。
+// 说明：通过 VS Code 工作区状态保存和维护三类工具项。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
 // 日期：2026-10-08
@@ -17,42 +17,18 @@ import {
 } from './shortcut-item';
 
 /** 当前版本的工作区工具数据键。 */
-const STORE_KEY = 'workKit.shortcuts.v2';
-/** 上一版本平铺工具项的工作区存储键。 */
-const LEGACY_STORE_KEY = 'workspaceToolbox.customMenuItems.v1';
+const STORE_KEY = 'oneTap.shortcuts.v1';
 
 /** 当前版本按类别保存的工具集合。 */
 interface StoredShortcuts {
   /** 存储格式版本。 */
-  version: 2;
+  version: 1;
   /** 从资源管理器添加并在终端运行的文件工具及其类别内顺序。 */
   terminalFiles: TerminalFileItem[];
   /** VS Code 命令工具及其类别内顺序。 */
   vscodeCommands: VsCodeCommandItem[];
   /** Copilot 消息工具及其类别内顺序。 */
   copilotMessages: CopilotMessageItem[];
-}
-
-/** 旧版可迁移的脚本或命令工具项。 */
-type LegacyItem = LegacyScriptItem | LegacyCommandItem;
-
-/** 旧版工作区脚本工具项。 */
-interface LegacyScriptItem {
-  id: string;
-  name: string;
-  type: 'script';
-  script: {
-    workspaceFolderUri: string;
-    relativePath: string;
-  };
-}
-
-/** 旧版 VS Code 命令工具项。 */
-interface LegacyCommandItem {
-  id: string;
-  name: string;
-  type: 'command';
-  commandId: string;
 }
 
 /** 管理当前工作区的三类自定义工具项。 */
@@ -71,24 +47,6 @@ export class ShortcutStore {
   public getItems(): ShortcutItem[] {
     const storedShortcuts = this.readStoredShortcuts();
     return [...storedShortcuts.terminalFiles, ...storedShortcuts.vscodeCommands, ...storedShortcuts.copilotMessages];
-  }
-
-  /**
-   * 将旧版平铺的脚本和命令数据迁移并等待新版数据写入完成。
-   * @returns 迁移完成或无需迁移时完成的异步操作。
-   * @throws 旧版或当前存储数据无效时抛出错误。
-   */
-  public async migrateLegacyItems(): Promise<void> {
-    if (this.workspaceState.get<unknown>(STORE_KEY) !== undefined) {
-      this.readStoredShortcuts();
-      return;
-    }
-
-    if (this.workspaceState.get<unknown>(LEGACY_STORE_KEY) === undefined) {
-      return;
-    }
-
-    await this.workspaceState.update(STORE_KEY, this.readStoredShortcuts());
   }
 
   /**
@@ -155,7 +113,7 @@ export class ShortcutStore {
     await this.workspaceState.update(STORE_KEY, storedShortcuts);
   }
 
-  /** 读取新版数据，或将旧脚本与命令项转换为新版类别结构。 */
+  /** 读取已保存的数据；尚无数据时返回空集合。 */
   private readStoredShortcuts(): StoredShortcuts {
     const storedShortcuts = this.workspaceState.get<unknown>(STORE_KEY);
     if (storedShortcuts !== undefined) {
@@ -167,37 +125,7 @@ export class ShortcutStore {
       return storedShortcuts;
     }
 
-    const legacyItems = this.workspaceState.get<unknown>(LEGACY_STORE_KEY);
-    if (legacyItems === undefined) {
-      return this.createEmptyStore();
-    }
-
-    if (!Array.isArray(legacyItems) || !legacyItems.every((item) => this.isLegacyItem(item))) {
-      throw new Error('旧版工具数据无效，未覆盖原数据。');
-    }
-
-    const migratedShortcuts = this.createEmptyStore();
-    for (const legacyItem of legacyItems) {
-      if (legacyItem.type === 'script') {
-        migratedShortcuts.terminalFiles.push({
-          id: legacyItem.id,
-          name: legacyItem.name,
-          type: 'terminalFile',
-          workspaceFolderUri: legacyItem.script.workspaceFolderUri,
-          relativePath: legacyItem.script.relativePath,
-        });
-      } else {
-        migratedShortcuts.vscodeCommands.push({
-          id: legacyItem.id,
-          name: legacyItem.name,
-          type: 'vscodeCommand',
-          commandId: legacyItem.commandId,
-        });
-      }
-    }
-
-    this.assertNoDuplicateItems(this.getItemsFrom(migratedShortcuts));
-    return migratedShortcuts;
+    return this.createEmptyStore();
   }
 
   /** 校验新版存储结构及全部工具项。 */
@@ -207,39 +135,13 @@ export class ShortcutStore {
     }
 
     const storedShortcuts = value as Record<string, unknown>;
-    return storedShortcuts.version === 2
+    return storedShortcuts.version === 1
       && Array.isArray(storedShortcuts.terminalFiles)
       && storedShortcuts.terminalFiles.every((item) => isShortcutItem(item) && item.type === 'terminalFile')
       && Array.isArray(storedShortcuts.vscodeCommands)
       && storedShortcuts.vscodeCommands.every((item) => isShortcutItem(item) && item.type === 'vscodeCommand')
       && Array.isArray(storedShortcuts.copilotMessages)
       && storedShortcuts.copilotMessages.every((item) => isShortcutItem(item) && item.type === 'copilotMessage');
-  }
-
-  /** 判断旧版本的脚本或命令结构是否可以无损迁移。 */
-  private isLegacyItem(value: unknown): value is LegacyItem {
-    if (typeof value !== 'object' || value === null) {
-      return false;
-    }
-
-    const item = value as Record<string, unknown>;
-    if (typeof item.id !== 'string' || !item.id || typeof item.name !== 'string' || !item.name.trim()) {
-      return false;
-    }
-
-    if (item.type === 'command') {
-      return typeof item.commandId === 'string' && item.commandId.trim().length > 0;
-    }
-
-    if (item.type === 'script' && typeof item.script === 'object' && item.script !== null) {
-      const script = item.script as Record<string, unknown>;
-      return typeof script.workspaceFolderUri === 'string'
-        && script.workspaceFolderUri.length > 0
-        && typeof script.relativePath === 'string'
-        && script.relativePath.length > 0;
-    }
-
-    return false;
   }
 
   /** 检查名称按类别唯一，且 ID 在全部类别中唯一。 */
@@ -263,7 +165,7 @@ export class ShortcutStore {
     }
   }
 
-  /** 校验已保存或迁移的数据没有重复 ID 或类别内重名。 */
+  /** 校验已保存的数据没有重复 ID 或类别内重名。 */
   private assertNoDuplicateItems(items: ShortcutItem[]): void {
     const seenIds = new Set<string>();
     for (const item of items) {
@@ -276,15 +178,15 @@ export class ShortcutStore {
     }
   }
 
-  /** 创建空的版本二工具集合。 */
+  /** 创建空的版本一工具集合。 */
   private createEmptyStore(): StoredShortcuts {
-    return { version: 2, terminalFiles: [], vscodeCommands: [], copilotMessages: [] };
+    return { version: 1, terminalFiles: [], vscodeCommands: [], copilotMessages: [] };
   }
 
   /** 复制各类别列表，避免在工作区状态对象上原地修改。 */
   private cloneStoredShortcuts(storedShortcuts: StoredShortcuts): StoredShortcuts {
     return {
-      version: 2,
+      version: 1,
       terminalFiles: [...storedShortcuts.terminalFiles],
       vscodeCommands: [...storedShortcuts.vscodeCommands],
       copilotMessages: [...storedShortcuts.copilotMessages],

@@ -1,6 +1,6 @@
-# WorkKit
+# OneTap
 
-WorkKit 是一个 VS Code 扩展，在底部 Panel 提供工作区文件运行、VS Code 命令和 Copilot Chat 提示词工具箱。
+OneTap 是一个 VS Code 扩展，在底部 Panel 提供工作区文件运行、VS Code 命令和 Copilot Chat 提示词工具箱。
 
 当前版本：`0.1.0`
 
@@ -28,7 +28,7 @@ npm test
 
 ## 设计文档
 
-- [工具箱三类工具设计](docs/workkit-design.md)
+- [工具箱三类工具设计](docs/onetap-design.md)
 
 ## 许可
 

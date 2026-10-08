@@ -1,6 +1,6 @@
 // ------------------------------------------------------------------------
 // 名称：shortcut-store.test.ts
-// 说明：验证三类工具的工作区存储、迁移、更新顺序与损坏数据保护。
+// 说明：验证三类工具的工作区存储、更新顺序与损坏数据保护。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
 // 日期：2026-10-08
@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Memento } from 'vscode';
-import { ShortcutStore } from '../src/workkit/shortcut-store';
+import { ShortcutStore } from '../src/onetap/shortcut-store';
 
 /** 建立可在单元测试中检查写入结果的工作区状态替身。 */
 function createWorkspaceState(initialValues: Record<string, unknown> = {}): {
@@ -36,42 +36,6 @@ function createWorkspaceState(initialValues: Record<string, unknown> = {}): {
 
   return { state, values };
 }
-
-test('migrates legacy scripts and commands into separate categories', async () => {
-  const { state, values } = createWorkspaceState({
-    'workspaceToolbox.customMenuItems.v1': [
-      {
-        id: 'script-1',
-        name: '构建',
-        type: 'script',
-        script: { workspaceFolderUri: 'file:///project', relativePath: 'build.ps1' },
-      },
-      { id: 'command-1', name: '重载', type: 'command', commandId: 'workbench.action.reloadWindow' },
-    ],
-  });
-  const store = new ShortcutStore(state);
-
-  await store.migrateLegacyItems();
-
-  assert.deepEqual(store.getItems().map((item) => item.type), ['terminalFile', 'vscodeCommand']);
-  assert.deepEqual(values.get('workKit.shortcuts.v2'), {
-    version: 2,
-    terminalFiles: [{
-      id: 'script-1',
-      name: '构建',
-      type: 'terminalFile',
-      workspaceFolderUri: 'file:///project',
-      relativePath: 'build.ps1',
-    }],
-    vscodeCommands: [{
-      id: 'command-1',
-      name: '重载',
-      type: 'vscodeCommand',
-      commandId: 'workbench.action.reloadWindow',
-    }],
-    copilotMessages: [],
-  });
-});
 
 test('updates an item in place and deletes it from its category', async () => {
   const { state } = createWorkspaceState();
@@ -102,12 +66,12 @@ test('reorders items within a category and rejects incomplete ID sequences', asy
 });
 
 test('keeps corrupt stored values untouched and rejects duplicate names per category', async () => {
-  const corrupt = { version: 2, terminalFiles: 'invalid' };
-  const { state, values } = createWorkspaceState({ 'workKit.shortcuts.v2': corrupt });
+  const corrupt = { version: 1, terminalFiles: 'invalid' };
+  const { state, values } = createWorkspaceState({ 'oneTap.shortcuts.v1': corrupt });
   const store = new ShortcutStore(state);
 
   assert.throws(() => store.getItems(), /未覆盖原数据/);
-  assert.equal(values.get('workKit.shortcuts.v2'), corrupt);
+  assert.equal(values.get('oneTap.shortcuts.v1'), corrupt);
 
   const healthyStore = new ShortcutStore(createWorkspaceState().state);
   await healthyStore.saveItem({ id: 'first', name: 'Build', type: 'vscodeCommand', commandId: 'first.command' });

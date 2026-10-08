@@ -8,18 +8,18 @@
 // ------------------------------------------------------------------------
 
 import * as vscode from 'vscode';
-import { ShortcutExecutor } from './workkit/shortcut-executor';
-import { ShortcutStore } from './workkit/shortcut-store';
-import { ShortcutViewProvider } from './workkit/shortcut-view-provider';
+import { ShortcutExecutor } from './onetap/shortcut-executor';
+import { ShortcutStore } from './onetap/shortcut-store';
+import { ShortcutViewProvider } from './onetap/shortcut-view-provider';
 
 /** 底部 Panel WebviewView 的标识。 */
-const SHORTCUT_VIEW_ID = 'workKit.shortcutView';
+const SHORTCUT_VIEW_ID = 'oneTap.shortcutView';
 /** 底部工具箱容器的标识，用于从状态栏打开对应 Panel。 */
-const PANEL_CONTAINER_ID = 'workKitPanel';
+const PANEL_CONTAINER_ID = 'oneTapPanel';
 /** 状态栏图标使用的扩展命令 ID，用于切换面板显示。 */
-const TOGGLE_PANEL_COMMAND_ID = 'workKit.togglePanel';
+const TOGGLE_PANEL_COMMAND_ID = 'oneTap.togglePanel';
 /** 文件资源管理器右键添加运行项的命令 ID。 */
-const ADD_WORKSPACE_FILE_COMMAND_ID = 'workKit.addWorkspaceFile';
+const ADD_WORKSPACE_FILE_COMMAND_ID = 'oneTap.addWorkspaceFile';
 /** 状态栏入口放在右侧项目组靠前的位置。 */
 const STATUS_BAR_PRIORITY = Number.MAX_SAFE_INTEGER;
 
@@ -28,18 +28,12 @@ const STATUS_BAR_PRIORITY = Number.MAX_SAFE_INTEGER;
  * @param context VS Code 扩展上下文，用于管理扩展资源生命周期。
  * @remarks 面板管理、列表与工具执行均通过 Webview 消息处理。
  */
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+export function activate(context: vscode.ExtensionContext): void {
   const store = new ShortcutStore(context.workspaceState);
-  try {
-    await store.migrateLegacyItems();
-  } catch {
-    // 面板读取时会将存储错误显示在 Webview，不阻止工具箱打开。
-  }
-
   const executor = new ShortcutExecutor();
   const shortcutViewProvider = new ShortcutViewProvider(context, store, executor);
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, STATUS_BAR_PRIORITY);
-  statusBarItem.text = '$(workkit-logo)';
+  statusBarItem.text = '$(onetap-logo)';
   statusBarItem.name = '工具箱';
   statusBarItem.tooltip = '切换工具箱面板';
   statusBarItem.accessibilityInformation = { label: '切换工具箱面板' };

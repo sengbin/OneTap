@@ -18,7 +18,7 @@ const OPEN_MENU_COMMAND = 'vscodeTools.openMenu';
 /** 命令面板中打开管理流程的命令 ID。 */
 const MANAGE_ITEMS_COMMAND = 'vscodeTools.manageItems';
 
-/** 状态栏入口的优先级，决定其在左侧状态栏中的相对位置。 */
+/** 状态栏入口的优先级，用于控制同侧状态项的相对显示顺序。 */
 const STATUS_BAR_PRIORITY = 100;
 
 /**
@@ -29,7 +29,7 @@ const STATUS_BAR_PRIORITY = 100;
 export function activate(context: vscode.ExtensionContext): void {
   const store = new MenuStore(context);
   const provider = new MenuProvider(store, new MenuExecutor());
-  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, STATUS_BAR_PRIORITY);
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, STATUS_BAR_PRIORITY);
   statusBarItem.text = '$(tools) 开发者工具箱';
   statusBarItem.tooltip = '运行自定义脚本和 VS Code 命令';
   statusBarItem.command = OPEN_MENU_COMMAND;

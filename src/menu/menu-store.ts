@@ -17,9 +17,9 @@ import {
 } from './menu-item';
 
 /** 当前版本的工作区工具数据键。 */
-const STORE_KEY = 'vscodeTools.tools.v2';
+const STORE_KEY = 'workspaceToolbox.tools.v2';
 /** 上一版本平铺菜单项的工作区存储键。 */
-const LEGACY_STORE_KEY = 'vscodeTools.customMenuItems.v1';
+const LEGACY_STORE_KEY = 'workspaceToolbox.customMenuItems.v1';
 
 /** 当前版本按类别保存的工具集合。 */
 interface StoredTools {

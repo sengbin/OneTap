@@ -1,5 +1,5 @@
 {
-  "name": "vscode-toolbox",
+  "name": "workspace-toolbox",
   "displayName": "VS Code 工具箱",
   "description": "在底部工具箱管理工作区文件、VS Code 命令和 Copilot 消息。",
   "version": "0.1.0",
@@ -22,12 +22,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sengbin/vscode-toolbox.git"
+    "url": "https://github.com/sengbin/workspace-toolbox.git"
   },
   "bugs": {
-    "url": "https://github.com/sengbin/vscode-toolbox/issues"
+    "url": "https://github.com/sengbin/workspace-toolbox/issues"
   },
-  "homepage": "https://github.com/sengbin/vscode-toolbox#readme",
+  "homepage": "https://github.com/sengbin/workspace-toolbox#readme",
   "main": "./out/src/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -35,24 +35,24 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscodeTools.addWorkspaceFile",
+        "command": "workspaceToolbox.addWorkspaceFile",
         "title": "添加到工具箱运行项"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "vscodeTools.addWorkspaceFile",
+          "command": "workspaceToolbox.addWorkspaceFile",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "7_modification"
         }
       ]
     },
     "icons": {
-      "vscode-tools-logo": {
+      "workspace-toolbox-logo": {
         "description": "工具箱状态栏图标",
         "default": {
-          "fontPath": "./resources/vscode-tools-icons.woff",
+          "fontPath": "./resources/workspace-toolbox-icons.woff",
           "fontCharacter": "\\E001"
         }
       }
@@ -60,17 +60,17 @@
     "viewsContainers": {
       "panel": [
         {
-          "id": "vscodeToolsPanel",
+          "id": "workspaceToolboxPanel",
           "title": "工具箱",
           "icon": "resources/logo.svg"
         }
       ]
     },
     "views": {
-      "vscodeToolsPanel": [
+      "workspaceToolboxPanel": [
         {
           "type": "webview",
-          "id": "vscodeTools.menuView",
+          "id": "workspaceToolbox.menuView",
           "name": "工具箱",
           "icon": "resources/logo.svg"
         }

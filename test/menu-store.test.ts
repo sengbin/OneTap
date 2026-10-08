@@ -39,7 +39,7 @@ function createWorkspaceState(initialValues: Record<string, unknown> = {}): {
 
 test('migrates legacy scripts and commands into separate categories', async () => {
   const { state, values } = createWorkspaceState({
-    'vscodeTools.customMenuItems.v1': [
+    'workspaceToolbox.customMenuItems.v1': [
       {
         id: 'script-1',
         name: '构建',
@@ -54,7 +54,7 @@ test('migrates legacy scripts and commands into separate categories', async () =
   await store.migrateLegacyItems();
 
   assert.deepEqual(store.getItems().map((item) => item.type), ['terminalFile', 'vscodeCommand']);
-  assert.deepEqual(values.get('vscodeTools.tools.v2'), {
+  assert.deepEqual(values.get('workspaceToolbox.tools.v2'), {
     version: 2,
     terminalFiles: [{
       id: 'script-1',
@@ -103,11 +103,11 @@ test('reorders items within a category and rejects incomplete ID sequences', asy
 
 test('keeps corrupt stored values untouched and rejects duplicate names per category', async () => {
   const corrupt = { version: 2, terminalFiles: 'invalid' };
-  const { state, values } = createWorkspaceState({ 'vscodeTools.tools.v2': corrupt });
+  const { state, values } = createWorkspaceState({ 'workspaceToolbox.tools.v2': corrupt });
   const store = new MenuStore(state);
 
   assert.throws(() => store.getItems(), /未覆盖原数据/);
-  assert.equal(values.get('vscodeTools.tools.v2'), corrupt);
+  assert.equal(values.get('workspaceToolbox.tools.v2'), corrupt);
 
   const healthyStore = new MenuStore(createWorkspaceState().state);
   await healthyStore.saveItem({ id: 'first', name: 'Build', type: 'vscodeCommand', commandId: 'first.command' });

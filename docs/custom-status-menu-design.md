@@ -34,7 +34,7 @@
 
 ## 3. 数据模型与存储
 
-使用 `context.workspaceState`，使配置按工作区隔离，并避免文件路径在其他仓库中误指向同名文件。当前版本化存储键为 `vscodeTools.tools.v2`，保存各类条目及各自顺序：
+使用 `context.workspaceState`，使配置按工作区隔离，并避免文件路径在其他仓库中误指向同名文件。当前版本化存储键为 `workspaceToolbox.tools.v2`，保存各类条目及各自顺序：
 
 ```ts
 type ToolItem = TerminalFileItem | VsCodeCommandItem | CopilotMessageItem;

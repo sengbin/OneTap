@@ -1,6 +1,8 @@
 .gitignore
 .vscode/**
 .vscodeignore
+.fantasticonrc.js
+tools/**
 src/**
 test/**
 out/test/**

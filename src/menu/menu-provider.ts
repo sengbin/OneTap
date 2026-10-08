@@ -15,13 +15,6 @@ import { CustomMenuItem, isPathWithinFolder, validateMenuItemName } from './menu
 import { MenuExecutor } from './menu-executor';
 import { MenuStore } from './menu-store';
 
-interface MenuChoice extends vscode.QuickPickItem {
-  /** 选择后要执行的顶层菜单动作。 */
-  action: 'manage' | 'run';
-  /** 运行动作对应的自定义工具。 */
-  menuItem?: CustomMenuItem;
-}
-
 interface ManagementChoice extends vscode.QuickPickItem {
   /** 选择后要执行的列表管理动作。 */
   action: 'add' | 'select';
@@ -36,7 +29,7 @@ interface ScriptTarget {
   relativePath: string;
 }
 
-/** 提供状态栏快速菜单和自定义工具项管理交互。 */
+/** 提供自定义工具项管理交互，并协调存储与执行。 */
 export class MenuProvider {
   /**
    * 创建菜单提供器。
@@ -47,38 +40,6 @@ export class MenuProvider {
     private readonly store: MenuStore,
     private readonly executor: MenuExecutor,
   ) {}
-
-  /**
-   * 打开固定管理入口和全部自定义工具项。
-   * @returns 用户完成选择后的异步操作。
-   */
-  public async openMenu(): Promise<void> {
-    const items = this.readItemsOrNotify();
-    if (!items) {
-      return;
-    }
-
-    // 管理入口放在数组首位，工具项沿用存储顺序供 Quick Pick 过滤。
-    const choices: MenuChoice[] = [
-      { label: '$(gear) 管理自定义工具...', action: 'manage' },
-      ...items.map((item) => ({
-        label: item.name,
-        description: item.type === 'script' ? 'PowerShell 脚本' : item.commandId,
-        action: 'run' as const,
-        menuItem: item,
-      })),
-    ];
-    const selected = await vscode.window.showQuickPick(choices, {
-      placeHolder: '选择要运行的工具',
-      title: '开发者工具箱',
-    });
-
-    if (selected?.action === 'manage') {
-      await this.manageItems();
-    } else if (selected?.menuItem) {
-      await this.executor.execute(selected.menuItem);
-    }
-  }
 
   /**
    * 打开管理列表并处理新增、编辑、运行和删除操作。
@@ -119,6 +80,21 @@ export class MenuProvider {
         return;
       }
     }
+  }
+
+  /**
+   * 直接打开指定菜单项的运行、编辑和删除操作。
+   * @param itemId 菜单项的稳定标识。
+   * @returns 管理操作结束后的异步流程。
+   */
+  public async manageItemById(itemId: string): Promise<void> {
+    const item = this.readItemsOrNotify()?.find((storedItem) => storedItem.id === itemId);
+    if (!item) {
+      void vscode.window.showWarningMessage('该工具项已不存在，请刷新工具菜单。');
+      return;
+    }
+
+    await this.manageItem(item);
   }
 
   /** 显示管理动作；返回 false 表示用户取消整个管理流程。 */

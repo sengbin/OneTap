@@ -1,0 +1,244 @@
+/*
+ * ------------------------------------------------------------------------
+ * 名称：menu-view.css
+ * 说明：为底部工具面板提供紧凑的 VS Code 主题适配布局和菜单行交互样式。
+ * 作者：Lion
+ * 邮箱：chengbin@3578.cn
+ * 日期：2026-10-08
+ * 备注：菜单状态跟随 VS Code 明暗主题。
+ * ------------------------------------------------------------------------
+ */
+
+:root {
+  --bg: var(--vscode-sideBar-background);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+.panel-content {
+  min-width: 0;
+  padding: 8px 16px 10px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.heading-group {
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.description,
+.tool-detail {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.description {
+  margin: 2px 0 0;
+}
+
+button {
+  min-height: 24px;
+  border: 0;
+  border-radius: 3px;
+  padding: 3px 8px;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.primary-button {
+  flex: 0 0 auto;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  padding: 0;
+}
+
+.icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.icon-play {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-more {
+  width: 18px;
+  height: 18px;
+}
+
+.tool-list {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tool-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  min-width: 0;
+  padding: 0 0 0 2px;
+  border-radius: 4px;
+}
+
+.tool-main-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px 0 0 4px;
+  color: var(--vscode-foreground);
+  background: transparent;
+  text-align: left;
+}
+
+.tool-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.tool-name,
+.tool-detail {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-name {
+  font-size: 12px;
+}
+
+.tool-detail {
+  font-size: 11px;
+}
+
+.tool-action-button {
+  display: inline-grid;
+  width: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  place-items: center;
+  padding: 0;
+  border-radius: 0 3px 3px 0;
+  color: var(--vscode-foreground);
+  background: transparent;
+}
+
+.tool-row:hover {
+  background: rgb(230, 230, 230);
+}
+
+.tool-action-button:hover {
+  background: rgb(220, 220, 220);
+}
+
+.tool-row.main-pressed {
+  background: rgb(222, 222, 222);
+}
+
+.tool-action-button.pressed {
+  background: rgb(212, 212, 212);
+}
+
+body.vscode-dark .tool-row:hover {
+  background: rgb(50, 50, 50);
+}
+
+body.vscode-dark .tool-action-button:hover {
+  background: rgb(61, 61, 61);
+}
+
+body.vscode-dark .tool-row.main-pressed {
+  background: rgb(47, 47, 47);
+}
+
+body.vscode-dark .tool-action-button.pressed {
+  background: rgb(56, 56, 56);
+}
+
+.status-message {
+  margin: 0 0 8px;
+  color: var(--vscode-errorForeground, rgb(180, 35, 24));
+  font-size: 12px;
+}
+
+.empty-state {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.empty-state[hidden],
+.tool-list[hidden],
+.status-message[hidden] {
+  display: none;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.secondary-button {
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.secondary-button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+

@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：tool-item.ts
+// 名称：shortcut-item.ts
 // 说明：定义三类工具项结构，并提供输入和路径安全校验。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -51,17 +51,17 @@ export interface CopilotMessageItem {
 }
 
 /** 可由工具箱运行的三类自定义项，按类型收窄执行目标。 */
-export type ToolItem = TerminalFileItem | VsCodeCommandItem | CopilotMessageItem;
+export type ShortcutItem = TerminalFileItem | VsCodeCommandItem | CopilotMessageItem;
 
 /** 工具项名称的最大字符数。 */
-export const MAX_TOOL_ITEM_NAME_LENGTH = 80;
+export const MAX_SHORTCUT_ITEM_NAME_LENGTH = 80;
 
 /**
  * 判断未知存储值是否符合三类工具项结构。
  * @param value 待检查的未知值。
  * @returns 值符合终端文件、VS Code 命令或 Copilot 消息结构时为 true。
  */
-export function isToolItem(value: unknown): value is ToolItem {
+export function isShortcutItem(value: unknown): value is ShortcutItem {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -94,14 +94,14 @@ export function isToolItem(value: unknown): value is ToolItem {
  * @param name 用户输入的工具名称。
  * @returns 输入有效时返回 undefined，否则返回错误说明。
  */
-export function validateToolName(name: string): string | undefined {
+export function validateShortcutName(name: string): string | undefined {
   const normalizedName = name.trim();
   if (normalizedName.length === 0) {
     return '请输入工具名称。';
   }
 
-  if (normalizedName.length > MAX_TOOL_ITEM_NAME_LENGTH) {
-    return `名称不能超过 ${MAX_TOOL_ITEM_NAME_LENGTH} 个字符。`;
+  if (normalizedName.length > MAX_SHORTCUT_ITEM_NAME_LENGTH) {
+    return `名称不能超过 ${MAX_SHORTCUT_ITEM_NAME_LENGTH} 个字符。`;
   }
 
   return undefined;

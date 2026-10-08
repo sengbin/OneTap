@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：tool-item.test.ts
+// 名称：shortcut-item.test.ts
 // 说明：验证工具项数据、名称规则、路径边界和 PowerShell 引号转义。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -11,27 +11,27 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as path from 'node:path';
 import {
-  isToolItem,
+  isShortcutItem,
   isPathWithinFolder,
   quotePowerShellPath,
-  validateToolName,
-} from '../src/toolbox/tool-item';
+  validateShortcutName,
+} from '../src/workkit/shortcut-item';
 
-test('accepts valid items from all three tool categories', () => {
-  assert.equal(isToolItem({
+test('accepts valid items from all three shortcut categories', () => {
+  assert.equal(isShortcutItem({
     id: 'script-1',
     name: '构建',
     type: 'terminalFile',
     workspaceFolderUri: 'file:///project',
     relativePath: 'build.ps1',
   }), true);
-  assert.equal(isToolItem({
+  assert.equal(isShortcutItem({
     id: 'command-1',
     name: '重载窗口',
     type: 'vscodeCommand',
     commandId: 'workbench.action.reloadWindow',
   }), true);
-  assert.equal(isToolItem({
+  assert.equal(isShortcutItem({
     id: 'message-1',
     name: '解释代码',
     type: 'copilotMessage',
@@ -39,12 +39,12 @@ test('accepts valid items from all three tool categories', () => {
   }), true);
 });
 
-test('rejects malformed tool items and invalid names', () => {
-  assert.equal(isToolItem({ id: 'bad', name: '脚本', type: 'terminalFile', relativePath: 'x.ps1' }), false);
-  assert.equal(isToolItem({ id: 'bad', name: '消息', type: 'copilotMessage', message: ' ' }), false);
-  assert.equal(validateToolName('   '), '请输入工具名称。');
-  assert.match(validateToolName('x'.repeat(81)) ?? '', /不能超过/);
-  assert.equal(validateToolName(' 构建 '), undefined);
+test('rejects malformed shortcut items and invalid names', () => {
+  assert.equal(isShortcutItem({ id: 'bad', name: '脚本', type: 'terminalFile', relativePath: 'x.ps1' }), false);
+  assert.equal(isShortcutItem({ id: 'bad', name: '消息', type: 'copilotMessage', message: ' ' }), false);
+  assert.equal(validateShortcutName('   '), '请输入工具名称。');
+  assert.match(validateShortcutName('x'.repeat(81)) ?? '', /不能超过/);
+  assert.equal(validateShortcutName(' 构建 '), undefined);
 });
 
 test('checks path containment by path segments', () => {

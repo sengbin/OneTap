@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：tool-view.js
+// 名称：shortcut-view.js
 // 说明：渲染三类工具列表和表单，运行文件通过资源管理器右键菜单添加。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -10,7 +10,7 @@
 /** SVG 元素的命名空间。 */
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 /** 三个固定工具类别及其页签顺序。 */
-const TOOL_TYPES = ['terminalFile', 'vscodeCommand', 'copilotMessage'];
+const SHORTCUT_TYPES = ['terminalFile', 'vscodeCommand', 'copilotMessage'];
 /** 面板使用的工具类别显示名称。 */
 const TYPE_LABELS = {
   terminalFile: '运行',
@@ -34,17 +34,17 @@ const statusText = document.getElementById('status-text');
 /** 视觉倒计时文本，屏幕阅读器忽略每秒变化。 */
 const statusCountdown = document.getElementById('status-countdown');
 const statusIconContainer = document.getElementById('status-icon');
-const toolDialog = document.getElementById('tool-dialog');
+const shortcutDialog = document.getElementById('shortcut-dialog');
 const confirmDialog = document.getElementById('confirm-dialog');
-const toolForm = document.getElementById('tool-form');
+const shortcutForm = document.getElementById('shortcut-form');
 const formError = document.getElementById('form-error');
 const confirmError = document.getElementById('confirm-error');
 const commandSuggestions = document.getElementById('command-suggestions');
 const filePathDisplay = document.getElementById('file-path');
 /** 各类别工具胶囊的容器，按类别标识索引。 */
-const toolOptions = Object.fromEntries(TOOL_TYPES.map((type) => [
+const shortcutOptions = Object.fromEntries(SHORTCUT_TYPES.map((type) => [
   type,
-  document.getElementById(`tools-${type}`),
+  document.getElementById(`shortcuts-${type}`),
 ]));
 
 /** 宿主最近一次推送的全部工具项。 */
@@ -52,7 +52,7 @@ let currentItems = [];
 /** 正在编辑的工具项 ID；新增时为空。 */
 let editingItemId;
 /** 表单当前对应的工具类别。 */
-let currentToolType = 'terminalFile';
+let currentShortcutType = 'terminalFile';
 /** 等待删除确认的工具项 ID。 */
 let pendingDeleteId;
 /** 打开对话层前获得焦点的控件，关闭后用于恢复焦点。 */
@@ -62,7 +62,7 @@ let existingRelativePath = '';
 /** 状态消息的自动隐藏计时器。 */
 let statusCountdownTimer;
 /** 当前正在拖动的同类别工具项。 */
-let draggedTool;
+let draggedShortcut;
 /** 键盘调整顺序后需要恢复焦点的工具项 ID。 */
 let pendingReorderFocusId;
 
@@ -71,9 +71,9 @@ statusIcon.classList.add('status-icon');
 statusIconContainer.append(statusIcon);
 document.querySelectorAll('.category-add-button').forEach((button) => {
   button.append(createIcon('add'));
-  button.addEventListener('click', () => openToolDialog(undefined, button.dataset.toolType));
+  button.addEventListener('click', () => openShortcutDialog(undefined, button.dataset.shortcutType));
 });
-document.getElementById('cancel-edit').addEventListener('click', closeToolDialog);
+document.getElementById('cancel-edit').addEventListener('click', closeShortcutDialog);
 document.getElementById('cancel-delete').addEventListener('click', closeConfirmDialog);
 document.getElementById('confirm-delete').addEventListener('click', () => {
   if (!pendingDeleteId) {
@@ -84,13 +84,13 @@ document.getElementById('confirm-delete').addEventListener('click', () => {
   vscode.postMessage({ type: 'delete', itemId: pendingDeleteId });
 });
 
-toolForm.addEventListener('submit', (event) => {
+shortcutForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  saveTool();
+  saveShortcut();
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Tab' && (!toolDialog.hidden || !confirmDialog.hidden)) {
+  if (event.key === 'Tab' && (!shortcutDialog.hidden || !confirmDialog.hidden)) {
     trapDialogFocus(event);
     return;
   }
@@ -99,8 +99,8 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (!toolDialog.hidden) {
-    closeToolDialog();
+  if (!shortcutDialog.hidden) {
+    closeShortcutDialog();
   } else if (!confirmDialog.hidden) {
     closeConfirmDialog();
   }
@@ -118,26 +118,26 @@ window.addEventListener('message', (event) => {
     restoreReorderFocus();
     showStatus(message.message, message.level);
     // 只有错误级反馈才写入对话层，否则其他操作的成功提示会被当作表单错误显示。
-    if (message.message && message.level === 'error' && !message.operation && !toolDialog.hidden) {
+    if (message.message && message.level === 'error' && !message.operation && !shortcutDialog.hidden) {
       showFormError(message.message);
     }
     if (message.message && message.level === 'error' && !message.operation && !confirmDialog.hidden) {
       showConfirmError(message.message);
     }
     if (message.operation === 'save') {
-      closeToolDialog();
+      closeShortcutDialog();
     } else if (message.operation === 'delete') {
       closeConfirmDialog();
     }
   } else if (message.type === 'commands' && Array.isArray(message.commands)) {
     renderCommands(message.commands);
   } else if (message.type === 'editItem' && message.item) {
-    openToolDialog(message.item);
+    openShortcutDialog(message.item);
   } else if (message.type === 'error') {
     // 状态推送失败时不会再有排序结果，需解除排序等待标记，否则后续键盘排序会被一直忽略。
     restoreReorderFocus();
     showStatus(message.message, 'error');
-    if (!toolDialog.hidden) {
+    if (!shortcutDialog.hidden) {
       showFormError(message.message);
     }
     if (!confirmDialog.hidden) {
@@ -148,12 +148,12 @@ window.addEventListener('message', (event) => {
 
 /** 同时渲染三类工具，每个类别独立横向排列。 */
 function renderItems() {
-  const groupedItems = Object.fromEntries(TOOL_TYPES.map((type) => [
+  const groupedItems = Object.fromEntries(SHORTCUT_TYPES.map((type) => [
     type,
     currentItems.filter((item) => item && item.type === type),
   ]));
-  TOOL_TYPES.forEach((type) => {
-    const container = toolOptions[type];
+  SHORTCUT_TYPES.forEach((type) => {
+    const container = shortcutOptions[type];
     container.replaceChildren();
 
     groupedItems[type].forEach((item) => {
@@ -162,12 +162,12 @@ function renderItems() {
       }
 
       const option = document.createElement('div');
-      option.className = 'tool-option';
+      option.className = 'shortcut-option';
       option.setAttribute('role', 'listitem');
-      bindToolReordering(option, type, item.id);
+      bindShortcutReordering(option, type, item.id);
 
       const runButton = document.createElement('button');
-      runButton.className = 'tool-option-run';
+      runButton.className = 'shortcut-option-run';
       runButton.dataset.itemId = item.id;
       if (item.name.length > 14) {
         runButton.classList.add('long-label');
@@ -182,11 +182,11 @@ function renderItems() {
       runButton.title = `${item.name}：${item.detail}`;
       runButton.textContent = item.name;
       runButton.addEventListener('click', () => vscode.postMessage({ type: 'run', itemId: item.id }));
-      runButton.addEventListener('keydown', (event) => reorderToolWithKeyboard(event, type, item.id));
+      runButton.addEventListener('keydown', (event) => reorderShortcutWithKeyboard(event, type, item.id));
       bindPressState(runButton);
 
       const actions = document.createElement('span');
-      actions.className = 'tool-actions';
+      actions.className = 'shortcut-actions';
       actions.append(
         createActionButton('edit', `编辑 ${item.name}`, () => vscode.postMessage({ type: 'getItem', itemId: item.id })),
         createActionButton('delete', `删除 ${item.name}`, () => openConfirmDialog(item)),
@@ -200,7 +200,7 @@ function renderItems() {
 }
 
 /** 使用 Alt+左右方向键调整工具顺序，并保留键盘焦点。 */
-function reorderToolWithKeyboard(event, toolType, itemId) {
+function reorderShortcutWithKeyboard(event, shortcutType, itemId) {
   if (!event.altKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) {
     return;
   }
@@ -210,7 +210,7 @@ function reorderToolWithKeyboard(event, toolType, itemId) {
     return;
   }
 
-  const categoryItems = currentItems.filter((item) => item && item.type === toolType);
+  const categoryItems = currentItems.filter((item) => item && item.type === shortcutType);
   const currentIndex = categoryItems.findIndex((item) => item.id === itemId);
   const destinationIndex = currentIndex + (event.key === 'ArrowLeft' ? -1 : 1);
   if (currentIndex === -1 || destinationIndex < 0 || destinationIndex >= categoryItems.length) {
@@ -221,7 +221,7 @@ function reorderToolWithKeyboard(event, toolType, itemId) {
   const [movingId] = itemIds.splice(currentIndex, 1);
   itemIds.splice(destinationIndex, 0, movingId);
   pendingReorderFocusId = itemId;
-  vscode.postMessage({ type: 'reorder', toolType, itemIds });
+  vscode.postMessage({ type: 'reorder', shortcutType, itemIds });
 }
 
 /** 列表重绘后将焦点还给刚完成排序的主按钮。 */
@@ -232,22 +232,22 @@ function restoreReorderFocus() {
 
   const itemId = pendingReorderFocusId;
   pendingReorderFocusId = undefined;
-  const button = [...document.querySelectorAll('.tool-option-run')]
+  const button = [...document.querySelectorAll('.shortcut-option-run')]
     .find((candidate) => candidate.dataset.itemId === itemId);
   button?.focus();
 }
 
 /** 绑定胶囊的同类别拖放排序与插入位置指示。 */
-function bindToolReordering(option, toolType, itemId) {
+function bindShortcutReordering(option, shortcutType, itemId) {
   option.draggable = true;
   option.addEventListener('dragstart', (event) => {
     const dragOrigin = document.elementFromPoint(event.clientX, event.clientY);
-    if (dragOrigin?.closest('.tool-actions')) {
+    if (dragOrigin?.closest('.shortcut-actions')) {
       event.preventDefault();
       return;
     }
 
-    draggedTool = { id: itemId, type: toolType };
+    draggedShortcut = { id: itemId, type: shortcutType };
     option.classList.add('dragging');
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
@@ -256,7 +256,7 @@ function bindToolReordering(option, toolType, itemId) {
   });
 
   option.addEventListener('dragover', (event) => {
-    if (!draggedTool || draggedTool.type !== toolType || draggedTool.id === itemId) {
+    if (!draggedShortcut || draggedShortcut.type !== shortcutType || draggedShortcut.id === itemId) {
       return;
     }
 
@@ -279,21 +279,21 @@ function bindToolReordering(option, toolType, itemId) {
   });
 
   option.addEventListener('drop', (event) => {
-    if (!draggedTool) {
+    if (!draggedShortcut) {
       return;
     }
 
     event.preventDefault();
-    if (draggedTool.type !== toolType || draggedTool.id === itemId) {
-      resetToolDrag();
+    if (draggedShortcut.type !== shortcutType || draggedShortcut.id === itemId) {
+      resetShortcutDrag();
       return;
     }
 
-    const categoryItems = currentItems.filter((item) => item && item.type === toolType);
+    const categoryItems = currentItems.filter((item) => item && item.type === shortcutType);
     const orderedIds = categoryItems.map((item) => item.id);
-    const movingIndex = orderedIds.indexOf(draggedTool.id);
+    const movingIndex = orderedIds.indexOf(draggedShortcut.id);
     if (movingIndex === -1 || !orderedIds.includes(itemId)) {
-      resetToolDrag();
+      resetShortcutDrag();
       return;
     }
 
@@ -303,44 +303,44 @@ function bindToolReordering(option, toolType, itemId) {
     const insertAfter = event.clientX >= bounds.left + bounds.width / 2;
     orderedIds.splice(targetIndex + (insertAfter ? 1 : 0), 0, movingId);
     const orderChanged = orderedIds.some((id, index) => id !== categoryItems[index].id);
-    resetToolDrag();
+    resetShortcutDrag();
 
     if (orderChanged) {
-      vscode.postMessage({ type: 'reorder', toolType, itemIds: orderedIds });
+      vscode.postMessage({ type: 'reorder', shortcutType, itemIds: orderedIds });
     }
   });
 
-  option.addEventListener('dragend', resetToolDrag);
+  option.addEventListener('dragend', resetShortcutDrag);
 }
 
 /** 清理拖动状态与插入位置指示线。 */
-function resetToolDrag() {
-  draggedTool = undefined;
-  document.querySelectorAll('.tool-option.dragging, .tool-option.drop-before, .tool-option.drop-after')
+function resetShortcutDrag() {
+  draggedShortcut = undefined;
+  document.querySelectorAll('.shortcut-option.dragging, .shortcut-option.drop-before, .shortcut-option.drop-after')
     .forEach((option) => option.classList.remove('dragging', 'drop-before', 'drop-after'));
 }
 
 /** 打开新增或编辑工具表单。运行文件路径由资源管理器右键命令确定。 */
-function openToolDialog(item, requestedType) {
+function openShortcutDialog(item, requestedType) {
   previousFocus = document.activeElement;
   editingItemId = item?.id;
   const type = item?.type ?? requestedType ?? 'terminalFile';
-  currentToolType = type;
+  currentShortcutType = type;
   document.getElementById('dialog-title').textContent = item ? '编辑工具' : `新增${TYPE_LABELS[type]}`;
-  document.getElementById('tool-name').value = item?.name ?? '';
+  document.getElementById('shortcut-name').value = item?.name ?? '';
   document.getElementById('command-id').value = item?.commandId ?? '';
   document.getElementById('copilot-message').value = item?.message ?? '';
   existingRelativePath = item?.type === 'terminalFile' ? item.relativePath ?? '' : '';
   filePathDisplay.textContent = existingRelativePath || '请从资源管理器文件右键菜单添加';
   filePathDisplay.title = existingRelativePath;
   formError.hidden = true;
-  setToolFields(type);
-  toolDialog.hidden = false;
-  document.getElementById('tool-name').focus();
+  setShortcutFields(type);
+  shortcutDialog.hidden = false;
+  document.getElementById('shortcut-name').focus();
 }
 
 /** 根据当前类别控制表单字段的显示、必填及可提交状态。 */
-function setToolFields(type) {
+function setShortcutFields(type) {
   const fieldGroups = [
     ['terminalFile', document.getElementById('terminal-fields')],
     ['vscodeCommand', document.getElementById('command-fields')],
@@ -357,40 +357,40 @@ function setToolFields(type) {
 }
 
 /** 向宿主提交当前完整表单；失败时保留输入内容供用户修正。 */
-function saveTool() {
-  const name = document.getElementById('tool-name').value.trim();
+function saveShortcut() {
+  const name = document.getElementById('shortcut-name').value.trim();
   if (!name) {
     showFormError('请输入工具名称。');
-    document.getElementById('tool-name').focus();
+    document.getElementById('shortcut-name').focus();
     return;
   }
 
-  const request = { type: 'save', toolType: currentToolType, itemId: editingItemId, name };
-  if (currentToolType === 'terminalFile') {
+  const request = { type: 'save', shortcutType: currentShortcutType, itemId: editingItemId, name };
+  if (currentShortcutType === 'terminalFile') {
     // 运行项的文件目标由宿主按 ID 取自存储，页面只提交名称。
     if (!editingItemId) {
       showFormError('请从资源管理器文件右键菜单添加运行项。');
       return;
     }
-  } else if (currentToolType === 'vscodeCommand') {
+  } else if (currentShortcutType === 'vscodeCommand') {
     request.commandId = document.getElementById('command-id').value.trim();
   } else {
     request.message = document.getElementById('copilot-message').value.trim();
   }
 
-  setButtonBusy(document.getElementById('save-tool'), true, '正在保存...');
+  setButtonBusy(document.getElementById('save-shortcut'), true, '正在保存...');
   vscode.postMessage(request);
 }
 
 /** 关闭表单并将焦点还给打开表单的控件。 */
-function closeToolDialog() {
-  toolDialog.hidden = true;
+function closeShortcutDialog() {
+  shortcutDialog.hidden = true;
   editingItemId = undefined;
-  setButtonBusy(document.getElementById('save-tool'), false, '保存');
+  setButtonBusy(document.getElementById('save-shortcut'), false, '保存');
   if (previousFocus?.isConnected) {
     previousFocus.focus();
   } else {
-    document.querySelector(`[data-tool-type="${currentToolType}"]`)?.focus();
+    document.querySelector(`[data-shortcut-type="${currentShortcutType}"]`)?.focus();
   }
 }
 
@@ -418,7 +418,7 @@ function closeConfirmDialog() {
 
 /** 将 Tab 焦点限制在打开的 Webview 对话层内。 */
 function trapDialogFocus(event) {
-  const activeDialog = toolDialog.hidden ? confirmDialog : toolDialog;
+  const activeDialog = shortcutDialog.hidden ? confirmDialog : shortcutDialog;
   const focusable = [...activeDialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')];
   if (focusable.length === 0) {
     return;
@@ -448,7 +448,7 @@ function renderCommands(commands) {
 /** 创建带可访问名称和悬停说明的行内图标操作按钮。 */
 function createActionButton(iconName, label, action) {
   const button = document.createElement('button');
-  button.className = 'tool-action-button';
+  button.className = 'shortcut-action-button';
   button.type = 'button';
   button.setAttribute('aria-label', label);
   button.title = label;
@@ -580,7 +580,7 @@ function showFormError(message) {
   formError.hidden = !message;
   formError.textContent = message || '';
   formError.title = message || '';
-  setButtonBusy(document.getElementById('save-tool'), false, '保存');
+  setButtonBusy(document.getElementById('save-shortcut'), false, '保存');
 }
 
 /** 在删除确认层内展示操作错误。 */

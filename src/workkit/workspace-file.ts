@@ -9,7 +9,7 @@
 
 import { promises as fileSystem } from 'node:fs';
 import * as path from 'node:path';
-import { isPathWithinFolder } from './tool-item';
+import { isPathWithinFolder } from './shortcut-item';
 
 /** 已通过工作区边界校验的文件位置。 */
 export interface ResolvedWorkspaceFile {

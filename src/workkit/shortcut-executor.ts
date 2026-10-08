@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：tool-executor.ts
+// 名称：shortcut-executor.ts
 // 说明：运行从资源管理器添加的工作区文件、VS Code 命令或预填 Copilot 消息。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -8,14 +8,14 @@
 // ------------------------------------------------------------------------
 
 import * as vscode from 'vscode';
-import { ToolItem, quotePowerShellPath } from './tool-item';
+import { ShortcutItem, quotePowerShellPath } from './shortcut-item';
 import { resolveFileInWorkspace } from './workspace-file';
 
 /** 扩展创建的 PowerShell 集成终端名称。 */
 const TERMINAL_NAME = '工具箱 PowerShell';
 
 /** 执行工具箱中的三类工具项。 */
-export class ToolExecutor {
+export class ShortcutExecutor {
   /** 本实例创建的终端引用，用于避免误用用户创建的同名终端。 */
   private terminal: vscode.Terminal | undefined;
 
@@ -25,7 +25,7 @@ export class ToolExecutor {
    * @returns 执行调度完成后的异步操作。
    * @throws 命令、聊天或工作区文件执行失败时抛出错误，由 Webview 显示。
    */
-  public async execute(item: ToolItem): Promise<void> {
+  public async execute(item: ShortcutItem): Promise<void> {
     if (item.type === 'vscodeCommand') {
       await vscode.commands.executeCommand(item.commandId);
       return;
@@ -43,7 +43,7 @@ export class ToolExecutor {
   }
 
   /** 校验工作区文件位置后，将调用发送至专用终端，不按扩展名拒绝。 */
-  private async executeWorkspaceFile(item: Extract<ToolItem, { type: 'terminalFile' }>): Promise<void> {
+  private async executeWorkspaceFile(item: Extract<ShortcutItem, { type: 'terminalFile' }>): Promise<void> {
     // 通过 URI 精确定位文件所属工作区，不依赖当前活动编辑器或工作区顺序。
     const workspaceFolder = vscode.workspace.workspaceFolders?.find(
       (folder) => folder.uri.toString() === item.workspaceFolderUri,

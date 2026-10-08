@@ -1,5 +1,5 @@
 {
-  "name": "workspace-toolbox",
+  "name": "workkit",
   "displayName": "WorkKit",
   "description": "Run workspace files, execute VS Code commands, and open saved Copilot Chat prompts from a compact panel.",
   "version": "0.1.1",
@@ -25,12 +25,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sengbin/workspace-toolbox.git"
+    "url": "https://github.com/sengbin/WorkKit.git"
   },
   "bugs": {
-    "url": "https://github.com/sengbin/workspace-toolbox/issues"
+    "url": "https://github.com/sengbin/WorkKit/issues"
   },
-  "homepage": "https://github.com/sengbin/workspace-toolbox#readme",
+  "homepage": "https://github.com/sengbin/WorkKit#readme",
   "main": "./out/src/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -38,30 +38,30 @@
   "contributes": {
     "commands": [
       {
-        "command": "workspaceToolbox.addWorkspaceFile",
+        "command": "workKit.addWorkspaceFile",
         "title": "添加到工具箱运行项"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "workspaceToolbox.addWorkspaceFile",
+          "command": "workKit.addWorkspaceFile",
           "when": "false"
         }
       ],
       "explorer/context": [
         {
-          "command": "workspaceToolbox.addWorkspaceFile",
+          "command": "workKit.addWorkspaceFile",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "7_modification"
         }
       ]
     },
     "icons": {
-      "workspace-toolbox-logo": {
+      "workkit-logo": {
         "description": "工具箱状态栏图标",
         "default": {
-          "fontPath": "./resources/workspace-toolbox-icons.woff",
+          "fontPath": "./resources/workkit-icons.woff",
           "fontCharacter": "\\E001"
         }
       }
@@ -69,17 +69,17 @@
     "viewsContainers": {
       "panel": [
         {
-          "id": "workspaceToolboxPanel",
+          "id": "workKitPanel",
           "title": "工具箱",
           "icon": "resources/logo.svg"
         }
       ]
     },
     "views": {
-      "workspaceToolboxPanel": [
+      "workKitPanel": [
         {
           "type": "webview",
-          "id": "workspaceToolbox.menuView",
+          "id": "workKit.shortcutView",
           "name": "工具箱",
           "icon": "resources/logo.svg"
         }

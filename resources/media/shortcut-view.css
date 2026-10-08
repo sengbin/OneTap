@@ -1,6 +1,6 @@
 /*
  * ------------------------------------------------------------------------
- * 名称：tool-view.css
+ * 名称：shortcut-view.css
  * 说明：为底部工具面板提供紧凑布局；编辑表单在对话层内单行横向排列。
  * 作者：Lion
  * 邮箱：chengbin@3578.cn
@@ -43,7 +43,7 @@ body {
   padding: 4px 8px;
 }
 
-.tool-groups {
+.shortcut-groups {
   display: flex;
   min-height: 0;
   min-width: 0;
@@ -51,7 +51,7 @@ body {
   overflow: hidden;
 }
 
-.tool-category-row {
+.shortcut-category-row {
   display: flex;
   height: auto;
   min-height: 34px;
@@ -196,7 +196,7 @@ body.vscode-light .danger-button:active {
   flex: 0 0 auto;
 }
 
-.tool-options {
+.shortcut-options {
   display: flex;
   flex: 1 1 0;
   min-width: 0;
@@ -209,7 +209,7 @@ body.vscode-light .danger-button:active {
   overscroll-behavior-x: contain;
 }
 
-.tool-option {
+.shortcut-option {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -223,18 +223,18 @@ body.vscode-light .danger-button:active {
   cursor: grab;
 }
 
-.tool-option.dragging {
+.shortcut-option.dragging {
   opacity: 0.45;
   cursor: grabbing;
 }
 
-.tool-option.drop-before,
-.tool-option.drop-after {
+.shortcut-option.drop-before,
+.shortcut-option.drop-after {
   position: relative;
 }
 
-.tool-option.drop-before::before,
-.tool-option.drop-after::after {
+.shortcut-option.drop-before::before,
+.shortcut-option.drop-after::after {
   position: absolute;
   top: 4px;
   bottom: 4px;
@@ -244,15 +244,15 @@ body.vscode-light .danger-button:active {
   content: '';
 }
 
-.tool-option.drop-before::before {
+.shortcut-option.drop-before::before {
   left: -4px;
 }
 
-.tool-option.drop-after::after {
+.shortcut-option.drop-after::after {
   right: -4px;
 }
 
-.tool-option-run {
+.shortcut-option-run {
   display: block;
   max-width: 172px;
   min-width: 32px;
@@ -267,38 +267,38 @@ body.vscode-light .danger-button:active {
   white-space: nowrap;
 }
 
-.tool-option-run.long-label {
+.shortcut-option-run.long-label {
   font-size: 10px;
 }
 
-.tool-option-run.very-long-label {
+.shortcut-option-run.very-long-label {
   font-size: 9px;
 }
 
-.tool-option-run:hover {
+.shortcut-option-run:hover {
   background: rgb(68,68,68);
 }
 
-.tool-option-run:active,
-.tool-option-run.pressed {
+.shortcut-option-run:active,
+.shortcut-option-run.pressed {
   background: rgb(57,57,57);
 }
 
-body.vscode-light .tool-option-run:hover {
+body.vscode-light .shortcut-option-run:hover {
   background: rgb(211,211,211);
 }
 
-body.vscode-light .tool-option-run:active,
-body.vscode-light .tool-option-run.pressed {
+body.vscode-light .shortcut-option-run:active,
+body.vscode-light .shortcut-option-run.pressed {
   background: rgb(198,198,198);
 }
 
-.tool-actions {
+.shortcut-actions {
   display: flex;
   align-items: center;
 }
 
-.tool-action-button {
+.shortcut-action-button {
   display: inline-grid;
   width: 20px;
   min-width: 20px;
@@ -311,19 +311,19 @@ body.vscode-light .tool-option-run.pressed {
   background: transparent;
 }
 
-.tool-action-button:hover {
+.shortcut-action-button:hover {
   background: rgb(91,91,91);
 }
 
-.tool-action-button.pressed {
+.shortcut-action-button.pressed {
   background: rgb(76,76,76);
 }
 
-body.vscode-light .tool-action-button:hover {
+body.vscode-light .shortcut-action-button:hover {
   background: rgb(190,190,190);
 }
 
-body.vscode-light .tool-action-button.pressed {
+body.vscode-light .shortcut-action-button.pressed {
   background: rgb(174,174,174);
 }
 
@@ -374,7 +374,7 @@ body.vscode-light .status-info {
   display: none;
 }
 
-.tool-dialog {
+.shortcut-dialog {
   width: min(760px, calc(100vw - 16px));
   max-height: 112px;
   overflow-x: auto;
@@ -386,15 +386,15 @@ body.vscode-light .status-info {
   box-shadow: 0 4px 20px color-mix(in srgb, rgb(0,0,0) 30%, transparent);
 }
 
-body.vscode-light .tool-dialog {
+body.vscode-light .shortcut-dialog {
   background: color-mix(in srgb, var(--bg) 76%, rgb(216,216,216));
 }
 
-body.vscode-dark .tool-dialog {
+body.vscode-dark .shortcut-dialog {
   background: color-mix(in srgb, var(--bg) 83%, rgb(0,0,0));
 }
 
-.tool-dialog h2 {
+.shortcut-dialog h2 {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
@@ -410,7 +410,7 @@ body.vscode-dark .tool-dialog {
 }
 
 /* 字段和按钮保持同一行，空间不足时只允许横向滚动。 */
-.tool-dialog form {
+.shortcut-dialog form {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -466,9 +466,9 @@ body.vscode-dark .tool-dialog {
   flex: 2 1 220px;
 }
 
-.tool-dialog input,
-.tool-dialog select,
-.tool-dialog textarea {
+.shortcut-dialog input,
+.shortcut-dialog select,
+.shortcut-dialog textarea {
   flex: 1 1 auto;
   width: 100%;
   height: 24px;
@@ -488,38 +488,38 @@ body.vscode-dark .tool-dialog {
   overflow: hidden;
 }
 
-.tool-dialog textarea {
+.shortcut-dialog textarea {
   overflow-x: hidden;
   overflow-y: auto;
 }
 
-body.vscode-light .tool-dialog input,
-body.vscode-light .tool-dialog select,
-body.vscode-light .tool-dialog textarea {
+body.vscode-light .shortcut-dialog input,
+body.vscode-light .shortcut-dialog select,
+body.vscode-light .shortcut-dialog textarea {
   border-color: color-mix(in srgb, var(--vscode-input-border, rgb(200,200,200)) 55%, rgb(255,255,255));
   background: color-mix(in srgb, var(--vscode-input-background) 93%, rgb(217,217,217));
 }
 
-.tool-dialog input:focus,
-.tool-dialog select:focus,
-.tool-dialog textarea:focus {
+.shortcut-dialog input:focus,
+.shortcut-dialog select:focus,
+.shortcut-dialog textarea:focus {
   border-color: var(--vscode-focusBorder, rgb(0,120,212));
   outline: 1px solid var(--vscode-focusBorder, rgb(0,120,212));
   outline-offset: 0;
 }
 
-.tool-dialog button:focus-visible {
+.shortcut-dialog button:focus-visible {
   outline: 1px solid var(--vscode-focusBorder, rgb(0,120,212));
   outline-offset: 1px;
 }
 
-.tool-dialog button:disabled {
+.shortcut-dialog button:disabled {
   color: rgba(255,255,255,0.68);
   background: color-mix(in srgb, rgba(255,255,255,0.08) 52%, var(--bg));
   cursor: default;
 }
 
-body.vscode-light .tool-dialog button:disabled {
+body.vscode-light .shortcut-dialog button:disabled {
   color: rgba(255,255,255,0.78);
   background: rgb(196,196,196);
 }

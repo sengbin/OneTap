@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-// 名称：tool-view-provider.ts
+// 名称：shortcut-view-provider.ts
 // 说明：承载底部 Panel WebviewView，并校验资源管理器文件、工具管理和执行消息。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
@@ -11,33 +11,33 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import {
-  ToolItem,
-  MAX_TOOL_ITEM_NAME_LENGTH,
+  ShortcutItem,
+  MAX_SHORTCUT_ITEM_NAME_LENGTH,
   TerminalFileItem,
-  isToolItem,
-  validateToolName,
-} from './tool-item';
-import { ToolExecutor } from './tool-executor';
-import { ToolStore } from './tool-store';
+  isShortcutItem,
+  validateShortcutName,
+} from './shortcut-item';
+import { ShortcutExecutor } from './shortcut-executor';
+import { ShortcutStore } from './shortcut-store';
 import { resolveFileInWorkspace } from './workspace-file';
 
 /** 自动生成重名后缀时尝试的最大序号（不含）。 */
 const MAX_NAME_SUFFIX_INDEX = 1000;
 
 /** 发给 Webview 的工具项只读视图。 */
-interface ToolItemViewModel {
+interface ShortcutItemViewModel {
   /** 工具项的稳定标识。 */
   id: string;
   /** 工具箱中显示的名称。 */
   name: string;
   /** 工具类别。 */
-  type: ToolItem['type'];
+  type: ShortcutItem['type'];
   /** 工具箱中显示的执行目标摘要。 */
   detail: string;
 }
 
 /** 管理底部 Panel WebviewView 的页面和受限消息。 */
-export class ToolViewProvider implements vscode.WebviewViewProvider {
+export class ShortcutViewProvider implements vscode.WebviewViewProvider {
   /** 当前已解析且未销毁的面板视图。 */
   private view: vscode.WebviewView | undefined;
 
@@ -57,8 +57,8 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
    */
   constructor(
     private readonly extensionContext: vscode.ExtensionContext,
-    private readonly store: ToolStore,
-    private readonly executor: ToolExecutor,
+    private readonly store: ShortcutStore,
+    private readonly executor: ShortcutExecutor,
   ) {
     this.extensionContext.subscriptions.push(
       vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -108,8 +108,8 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
   private createHtml(webview: vscode.Webview): string {
     const nonce = randomBytes(16).toString('base64');
     const mediaDirectory = vscode.Uri.joinPath(this.extensionContext.extensionUri, 'resources', 'media');
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'tool-view.css'));
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'tool-view.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'shortcut-view.css'));
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaDirectory, 'shortcut-view.js'));
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -122,20 +122,20 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <main class="panel-content">
-    <div class="tool-groups" aria-label="工具类别">
-      <section class="tool-category-row" aria-label="运行">
+    <div class="shortcut-groups" aria-label="工具类别">
+      <section class="shortcut-category-row" aria-label="运行">
         <h2 class="category-label">运行</h2>
-        <div id="tools-terminalFile" class="tool-options" role="list" aria-label="运行工具"></div>
+        <div id="shortcuts-terminalFile" class="shortcut-options" role="list" aria-label="运行工具"></div>
       </section>
-      <section class="tool-category-row" aria-label="消息">
+      <section class="shortcut-category-row" aria-label="消息">
         <h2 class="category-label">消息</h2>
-        <div id="tools-copilotMessage" class="tool-options" role="list" aria-label="消息工具"></div>
-        <button class="category-add-button" type="button" data-tool-type="copilotMessage" aria-label="新增消息工具" title="新增消息工具"></button>
+        <div id="shortcuts-copilotMessage" class="shortcut-options" role="list" aria-label="消息工具"></div>
+        <button class="category-add-button" type="button" data-shortcut-type="copilotMessage" aria-label="新增消息工具" title="新增消息工具"></button>
       </section>
-      <section class="tool-category-row" aria-label="命令">
+      <section class="shortcut-category-row" aria-label="命令">
         <h2 class="category-label">命令</h2>
-        <div id="tools-vscodeCommand" class="tool-options" role="list" aria-label="命令工具"></div>
-        <button class="category-add-button" type="button" data-tool-type="vscodeCommand" aria-label="新增命令工具" title="新增命令工具"></button>
+        <div id="shortcuts-vscodeCommand" class="shortcut-options" role="list" aria-label="命令工具"></div>
+        <button class="category-add-button" type="button" data-shortcut-type="vscodeCommand" aria-label="新增命令工具" title="新增命令工具"></button>
       </section>
     </div>
     <p id="status-message" class="status-message" role="status" aria-live="polite" hidden>
@@ -143,12 +143,12 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
       <span id="status-text"></span>
       <span id="status-countdown" aria-hidden="true"></span>
     </p>
-    <div id="tool-dialog" class="dialog-backdrop" hidden>
-      <section class="tool-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-        <form id="tool-form" novalidate>
+    <div id="shortcut-dialog" class="dialog-backdrop" hidden>
+      <section class="shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <form id="shortcut-form" novalidate>
           <h2 id="dialog-title">新增工具</h2>
           <div class="form-line">
-            <label class="inline-field name-field" for="tool-name"><span>名称</span><input id="tool-name" name="name" type="text" maxlength="80" required autocomplete="off"></label>
+            <label class="inline-field name-field" for="shortcut-name"><span>名称</span><input id="shortcut-name" name="name" type="text" maxlength="80" required autocomplete="off"></label>
             <div id="terminal-fields" class="form-fields" hidden>
               <div class="inline-field">
                 <span id="file-path-label">执行文件</span>
@@ -167,7 +167,7 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
             </div>
             <div class="dialog-actions">
               <button id="cancel-edit" class="secondary-button" type="button">取消</button>
-              <button id="save-tool" class="primary-button" type="submit">保存</button>
+              <button id="save-shortcut" class="primary-button" type="submit">保存</button>
             </div>
           </div>
           <p id="form-error" class="form-error" role="alert" hidden></p>
@@ -175,7 +175,7 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
       </section>
     </div>
     <div id="confirm-dialog" class="dialog-backdrop" hidden>
-      <section class="tool-dialog confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+      <section class="shortcut-dialog confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
         <h2 id="confirm-title">删除工具</h2>
         <p id="confirm-message"></p>
         <p id="confirm-error" class="form-error" role="alert" hidden></p>
@@ -206,15 +206,15 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (request.type === 'reorder') {
-        const toolType = request.toolType;
+        const shortcutType = request.shortcutType;
         const itemIds = request.itemIds;
-        if ((toolType !== 'terminalFile' && toolType !== 'vscodeCommand' && toolType !== 'copilotMessage')
+        if ((shortcutType !== 'terminalFile' && shortcutType !== 'vscodeCommand' && shortcutType !== 'copilotMessage')
           || !Array.isArray(itemIds)
           || !itemIds.every((itemId): itemId is string => typeof itemId === 'string')) {
           throw new Error('工具项顺序无效，无法保存。');
         }
 
-        await this.store.reorderItems(toolType, itemIds);
+        await this.store.reorderItems(shortcutType, itemIds);
         await this.sendState(undefined, 'reorder');
         return;
       }
@@ -259,14 +259,14 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
   }
 
   /** 从工作区存储中查找工具项，不信任页面回传的执行目标。 */
-  private findItem(itemId: string): ToolItem | undefined {
+  private findItem(itemId: string): ShortcutItem | undefined {
     return this.store.getItems().find((item) => item.id === itemId);
   }
 
   /** 校验表单字段并组装宿主侧工具项；运行项的文件目标一律取自已保存数据。 */
-  private buildItem(request: Record<string, unknown>): ToolItem {
+  private buildItem(request: Record<string, unknown>): ShortcutItem {
     const name = typeof request.name === 'string' ? request.name.trim() : '';
-    const nameError = validateToolName(name);
+    const nameError = validateShortcutName(name);
     if (nameError) {
       throw new Error(nameError);
     }
@@ -280,23 +280,23 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
     }
 
     const id = existingItem?.id ?? randomUUID();
-    let item: ToolItem;
+    let item: ShortcutItem;
 
-    if (request.toolType === 'terminalFile') {
+    if (request.shortcutType === 'terminalFile') {
       // 运行项只能通过资源管理器添加，编辑时只改名称，不采用页面回传的路径；工作区已关闭的运行项仍可改名或删除。
       if (existingItem?.type !== 'terminalFile') {
         throw new Error('运行项只能通过资源管理器文件右键菜单添加。');
       }
       item = { ...existingItem, name };
-    } else if (request.toolType === 'vscodeCommand' && typeof request.commandId === 'string') {
+    } else if (request.shortcutType === 'vscodeCommand' && typeof request.commandId === 'string') {
       item = { id, name, type: 'vscodeCommand', commandId: request.commandId.trim() };
-    } else if (request.toolType === 'copilotMessage' && typeof request.message === 'string') {
+    } else if (request.shortcutType === 'copilotMessage' && typeof request.message === 'string') {
       item = { id, name, type: 'copilotMessage', message: request.message.trim() };
     } else {
       throw new Error('工具类型或表单字段无效。');
     }
 
-    if (!isToolItem(item)) {
+    if (!isShortcutItem(item)) {
       throw new Error('请完整填写工具名称和执行目标。');
     }
 
@@ -323,15 +323,15 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
   }
 
   /** 为右键添加的文件生成类别内不重复、且不超过名称长度上限的显示名。 */
-  private allocateToolName(baseName: string, usedNames: Set<string>): string {
-    const trimmed = baseName.trim().slice(0, MAX_TOOL_ITEM_NAME_LENGTH) || '未命名文件';
+  private allocateShortcutName(baseName: string, usedNames: Set<string>): string {
+    const trimmed = baseName.trim().slice(0, MAX_SHORTCUT_ITEM_NAME_LENGTH) || '未命名文件';
     if (!usedNames.has(trimmed.toLocaleLowerCase())) {
       return trimmed;
     }
 
     for (let index = 2; index < MAX_NAME_SUFFIX_INDEX; index += 1) {
       const suffix = ` (${index})`;
-      const candidate = `${trimmed.slice(0, Math.max(1, MAX_TOOL_ITEM_NAME_LENGTH - suffix.length))}${suffix}`;
+      const candidate = `${trimmed.slice(0, Math.max(1, MAX_SHORTCUT_ITEM_NAME_LENGTH - suffix.length))}${suffix}`;
       if (!usedNames.has(candidate.toLocaleLowerCase())) {
         return candidate;
       }
@@ -366,10 +366,10 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
             throw new Error(`文件“${path.basename(target.relativePath)}”已在运行项“${existingName}”中，不能重复添加。`);
           }
 
-          const name = this.allocateToolName(path.basename(target.relativePath), usedNames);
+          const name = this.allocateShortcutName(path.basename(target.relativePath), usedNames);
           usedNames.add(name.toLocaleLowerCase());
           const item: TerminalFileItem = { id: randomUUID(), name, type: 'terminalFile', ...target };
-          const nameError = validateToolName(item.name);
+          const nameError = validateShortcutName(item.name);
           if (nameError) {
             throw new Error(nameError);
           }
@@ -417,7 +417,7 @@ export class ToolViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
-      const items: ToolItemViewModel[] = this.store.getItems().map((item) => ({
+      const items: ShortcutItemViewModel[] = this.store.getItems().map((item) => ({
         id: item.id,
         name: item.name,
         type: item.type,

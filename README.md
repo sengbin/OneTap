@@ -1,6 +1,6 @@
-# VS Code 工具箱
+# WorkKit
 
-`workspace-toolbox` 是一个 VS Code 扩展，在底部 Panel 提供工作区文件、VS Code 命令和 Copilot Chat 消息工具箱。
+`workspace-toolbox` 是一个 VS Code 扩展，在底部 Panel 提供工作区文件运行、VS Code 命令和 Copilot Chat 提示词工具箱。
 
 当前版本：`0.1.1`
 

@@ -1,7 +1,7 @@
 {
   "name": "workspace-toolbox",
-  "displayName": "VS Code 工具箱",
-  "description": "在底部工具箱管理工作区文件、VS Code 命令和 Copilot 消息。",
+  "displayName": "WorkKit",
+  "description": "Run workspace files, execute VS Code commands, and open saved Copilot Chat prompts from a compact panel.",
   "version": "0.1.1",
   "publisher": "chengbin",
   "license": "Apache-2.0",
@@ -13,9 +13,12 @@
     "Other"
   ],
   "keywords": [
+    "workspace",
+    "scripts",
     "terminal",
     "powershell",
     "commands",
+    "prompts",
     "productivity",
     "copilot chat",
     "workspace scripts"

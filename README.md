@@ -19,15 +19,6 @@ npm install
 npm test
 ```
 
-在 VS Code 中按 F5，或运行“开发者工具箱：启动扩展”启动 Extension Development Host。
-
-## 打包
-
-```sh
-npm run package
-```
-
-该命令会在仓库根目录生成 `.vsix` 安装包。发布到 Marketplace 还需要具备 `sengbin` Publisher 的发布权限；发布前请参考[发布检查清单](docs/marketplace-release.md)。
 
 ## 设计文档
 

@@ -19,7 +19,6 @@ npm install
 npm test
 ```
 
-
 ## 设计文档
 
 - [自定义状态栏工具菜单设计](docs/custom-status-menu-design.md)

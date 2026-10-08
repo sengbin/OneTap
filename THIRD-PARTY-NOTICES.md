@@ -2,7 +2,7 @@
 
 ## Tabler Icons
 
-本扩展 `resources/media/menu-view.js` 中的播放、设置、更多和添加图标路径来自 Tabler Icons（https://github.com/tabler/tabler-icons），按 MIT License 分发。
+本扩展 `resources/media/menu-view.js` 中的消息、添加、编辑和删除图标路径来自 Tabler Icons（https://github.com/tabler/tabler-icons），按 MIT License 分发。
 
 Copyright (c) 2020-2026 Paweł Kuna
 

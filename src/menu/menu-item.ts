@@ -1,6 +1,6 @@
 // ------------------------------------------------------------------------
 // 名称：menu-item.ts
-// 说明：定义自定义工具项结构，并提供输入和路径安全校验。
+// 说明：定义三类工具项结构，并提供输入和路径安全校验。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
 // 日期：2026-10-08
@@ -9,45 +9,54 @@
 
 import * as path from 'node:path';
 
-/** 工作区脚本工具项。 */
-export interface ScriptMenuItem {
-  /** 跨编辑操作保持不变的菜单项标识。 */
+/** 从资源管理器添加并在终端运行的本地工作区文件工具项。 */
+export interface TerminalFileItem {
+  /** 跨编辑操作保持不变的工具项标识。 */
   id: string;
-  /** 显示在状态栏菜单中的名称。 */
+  /** 显示在工具箱中的名称。 */
   name: string;
-  /** 用于区分脚本运行和命令调用的数据类型。 */
-  type: 'script';
-  /** 脚本所属工作区及相对路径。 */
-  script: {
-    /** 工作区文件夹的 URI 字符串。 */
-    workspaceFolderUri: string;
-    /** 相对工作区根目录的 PowerShell 脚本路径。 */
-    relativePath: string;
-  };
+  /** 工具类别标识。 */
+  type: 'terminalFile';
+  /** 文件所属工作区文件夹的 URI。 */
+  workspaceFolderUri: string;
+  /** 相对工作区根目录的文件路径，不限制扩展名。 */
+  relativePath: string;
 }
 
 /** VS Code 命令工具项。 */
-export interface CommandMenuItem {
-  /** 跨编辑操作保持不变的菜单项标识。 */
+export interface VsCodeCommandItem {
+  /** 跨编辑操作保持不变的工具项标识。 */
   id: string;
-  /** 显示在状态栏菜单中的名称。 */
+  /** 显示在工具箱中的名称。 */
   name: string;
-  /** 用于区分脚本运行和命令调用的数据类型。 */
-  type: 'command';
+  /** 工具类别标识。 */
+  type: 'vscodeCommand';
   /** 由 VS Code 或扩展注册的命令 ID。 */
   commandId: string;
 }
 
-/** 可由状态栏工具菜单运行的自定义项，按类型收窄其执行目标。 */
-export type CustomMenuItem = ScriptMenuItem | CommandMenuItem;
+/** Copilot Chat 消息工具项。 */
+export interface CopilotMessageItem {
+  /** 跨编辑操作保持不变的工具项标识。 */
+  id: string;
+  /** 显示在工具箱中的名称。 */
+  name: string;
+  /** 工具类别标识。 */
+  type: 'copilotMessage';
+  /** 点击后填入 Copilot Chat、等待用户检查的消息正文。 */
+  message: string;
+}
 
-/** 自定义菜单项名称的最大字符数。 */
-export const MAX_MENU_ITEM_NAME_LENGTH = 80;
+/** 可由工具箱运行的三类自定义项，按类型收窄执行目标。 */
+export type CustomMenuItem = TerminalFileItem | VsCodeCommandItem | CopilotMessageItem;
+
+/** 工具项名称的最大字符数。 */
+export const MAX_TOOL_ITEM_NAME_LENGTH = 80;
 
 /**
- * 判断未知存储值是否符合菜单项结构。
+ * 判断未知存储值是否符合三类工具项结构。
  * @param value 待检查的未知值。
- * @returns 值符合脚本项或命令项结构时为 true。
+ * @returns 值符合终端文件、VS Code 命令或 Copilot 消息结构时为 true。
  */
 export function isCustomMenuItem(value: unknown): value is CustomMenuItem {
   if (typeof value !== 'object' || value === null) {
@@ -59,23 +68,26 @@ export function isCustomMenuItem(value: unknown): value is CustomMenuItem {
     return false;
   }
 
-  if (item.type === 'command') {
+  if (item.type === 'vscodeCommand') {
     return typeof item.commandId === 'string' && item.commandId.trim().length > 0;
   }
 
-  if (item.type === 'script' && typeof item.script === 'object' && item.script !== null) {
-    const script = item.script as Record<string, unknown>;
-    return typeof script.workspaceFolderUri === 'string'
-      && script.workspaceFolderUri.length > 0
-      && typeof script.relativePath === 'string'
-      && script.relativePath.length > 0;
+  if (item.type === 'terminalFile') {
+    return typeof item.workspaceFolderUri === 'string'
+      && item.workspaceFolderUri.length > 0
+      && typeof item.relativePath === 'string'
+      && item.relativePath.length > 0;
+  }
+
+  if (item.type === 'copilotMessage') {
+    return typeof item.message === 'string' && item.message.trim().length > 0;
   }
 
   return false;
 }
 
 /**
- * 检查菜单名称是否合法。
+ * 检查工具项名称是否合法。
  * @param name 用户输入的菜单名称。
  * @returns 输入有效时返回 undefined，否则返回错误说明。
  */
@@ -85,8 +97,8 @@ export function validateMenuItemName(name: string): string | undefined {
     return '请输入菜单项名称。';
   }
 
-  if (normalizedName.length > MAX_MENU_ITEM_NAME_LENGTH) {
-    return `名称不能超过 ${MAX_MENU_ITEM_NAME_LENGTH} 个字符。`;
+  if (normalizedName.length > MAX_TOOL_ITEM_NAME_LENGTH) {
+    return `名称不能超过 ${MAX_TOOL_ITEM_NAME_LENGTH} 个字符。`;
   }
 
   return undefined;

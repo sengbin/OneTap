@@ -1,10 +1,10 @@
 // ------------------------------------------------------------------------
 // 名称：menu-executor.ts
-// 说明：执行 VS Code 命令，或在专用 PowerShell 终端运行工作区脚本。
+// 说明：运行从资源管理器添加的工作区文件、VS Code 命令或预填 Copilot 消息。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
-// 日期：2026-10-08
-// 备注：脚本必须是本地工作区内的 PowerShell 文件。
+// 日期：2026-10-09
+// 备注：文件必须位于本地工作区内，不限制扩展名。
 // ------------------------------------------------------------------------
 
 import { promises as fileSystem } from 'node:fs';
@@ -13,65 +13,72 @@ import * as vscode from 'vscode';
 import { CustomMenuItem, isPathWithinFolder, quotePowerShellPath } from './menu-item';
 
 /** 扩展创建的 PowerShell 集成终端名称。 */
-const TERMINAL_NAME = '开发者工具箱 PowerShell';
+const TERMINAL_NAME = '工具箱 PowerShell';
 
-/** 执行状态栏菜单中的命令或 PowerShell 脚本。 */
+/** 执行工具箱中的三类工具项。 */
 export class MenuExecutor {
   /** 本实例创建的终端引用，用于避免误用用户创建的同名终端。 */
   private terminal: vscode.Terminal | undefined;
 
   /**
-   * 根据菜单项类型执行目标。
-   * @param item 要运行的菜单项。
+   * 根据工具类别执行目标。
+   * @param item 要执行的工具项。
    * @returns 执行调度完成后的异步操作。
-  * @remarks 执行失败时通过 VS Code 错误提示反馈，不向扩展宿主抛出异常。
+  * @throws 命令、聊天或工作区文件执行失败时抛出错误，由 Webview 显示。
    */
   public async execute(item: CustomMenuItem): Promise<void> {
-    try {
-      if (item.type === 'command') {
-        await vscode.commands.executeCommand(item.commandId);
-        return;
-      }
-
-      await this.executeScript(item);
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      void vscode.window.showErrorMessage(`运行“${item.name}”失败：${detail}`);
+    if (item.type === 'vscodeCommand') {
+      await vscode.commands.executeCommand(item.commandId);
+      return;
     }
+
+    if (item.type === 'copilotMessage') {
+      await vscode.commands.executeCommand('workbench.action.chat.open', {
+        query: item.message,
+        isPartialQuery: true,
+      });
+      return;
+    }
+
+    await this.executeWorkspaceFile(item);
   }
 
-  /** 校验工作区脚本位置后，将 PowerShell 调用发送至专用终端。 */
-  private async executeScript(item: Extract<CustomMenuItem, { type: 'script' }>): Promise<void> {
-    // 通过 URI 精确定位脚本所属工作区，不依赖当前活动编辑器或工作区顺序。
+  /** 校验工作区文件位置后，将调用发送至专用终端，不按扩展名拒绝。 */
+  private async executeWorkspaceFile(item: Extract<CustomMenuItem, { type: 'terminalFile' }>): Promise<void> {
+    // 通过 URI 精确定位文件所属工作区，不依赖当前活动编辑器或工作区顺序。
     const workspaceFolder = vscode.workspace.workspaceFolders?.find(
-      (folder) => folder.uri.toString() === item.script.workspaceFolderUri,
+      (folder) => folder.uri.toString() === item.workspaceFolderUri,
     );
     if (!workspaceFolder || workspaceFolder.uri.scheme !== 'file') {
-      throw new Error('脚本所属的本地工作区文件夹已不可用。');
+      throw new Error('文件所属的本地工作区文件夹已不可用。');
     }
 
-    // 先校验词法路径，再解析符号链接后的真实路径，防止脚本借链接逃离工作区。
+    // 先校验词法路径，再解析符号链接后的真实路径，防止文件借链接逃离工作区。
     const rootPath = await fileSystem.realpath(workspaceFolder.uri.fsPath);
-    const scriptPath = path.resolve(rootPath, item.script.relativePath);
-    if (!isPathWithinFolder(rootPath, scriptPath)) {
-      throw new Error('脚本路径超出了工作区范围。');
+    const candidatePath = path.resolve(rootPath, item.relativePath);
+    if (!isPathWithinFolder(rootPath, candidatePath)) {
+      throw new Error('文件路径超出了工作区范围。');
     }
 
-    const realScriptPath = await fileSystem.realpath(scriptPath);
-    if (!isPathWithinFolder(rootPath, realScriptPath)) {
-      throw new Error('脚本实际文件位于工作区之外，已阻止运行。');
+    let realFilePath: string;
+    try {
+      realFilePath = await fileSystem.realpath(candidatePath);
+    } catch {
+      throw new Error('目标文件不存在，或无法读取。');
+    }
+    if (!isPathWithinFolder(rootPath, realFilePath)) {
+      throw new Error('文件实际位置位于工作区之外，已阻止运行。');
     }
 
-    // 执行前重新确认目标仍是存在的 PowerShell 文件，覆盖保存后文件被移动或删除的情况。
-    const fileInfo = await fileSystem.stat(realScriptPath);
-    if (!fileInfo.isFile() || path.extname(realScriptPath).toLocaleLowerCase() !== '.ps1') {
-      throw new Error('目标文件不存在，或不是 PowerShell 脚本。');
+    const fileInfo = await fileSystem.stat(realFilePath);
+    if (!fileInfo.isFile()) {
+      throw new Error('目标不是工作区中的文件。');
     }
 
-    // 使用专属终端展示脚本输出；发送命令不代表脚本已成功结束。
+    // 使用专属终端展示输出；发送调用不代表文件已成功结束。
     const terminal = this.getTerminal(workspaceFolder.uri.fsPath);
     terminal.show(true);
-    terminal.sendText(`& ${quotePowerShellPath(realScriptPath)}`, true);
+    terminal.sendText(`& ${quotePowerShellPath(realFilePath)}`, true);
   }
 
   /** 查找扩展终端；不存在时按当前平台启动 PowerShell。 */

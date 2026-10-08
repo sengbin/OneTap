@@ -1,7 +1,6 @@
 .gitignore
 .vscode/**
 .vscodeignore
-.fantasticonrc.js
 build.ps1
 tools/**
 src/**

@@ -17,23 +17,31 @@ import {
   validateMenuItemName,
 } from '../src/menu/menu-item';
 
-test('accepts valid script and command menu items', () => {
+test('accepts valid items from all three tool categories', () => {
   assert.equal(isCustomMenuItem({
     id: 'script-1',
     name: '构建',
-    type: 'script',
-    script: { workspaceFolderUri: 'file:///project', relativePath: 'build.ps1' },
+    type: 'terminalFile',
+    workspaceFolderUri: 'file:///project',
+    relativePath: 'build.ps1',
   }), true);
   assert.equal(isCustomMenuItem({
     id: 'command-1',
     name: '重载窗口',
-    type: 'command',
+    type: 'vscodeCommand',
     commandId: 'workbench.action.reloadWindow',
+  }), true);
+  assert.equal(isCustomMenuItem({
+    id: 'message-1',
+    name: '解释代码',
+    type: 'copilotMessage',
+    message: '请解释当前代码。',
   }), true);
 });
 
 test('rejects malformed menu items and invalid names', () => {
-  assert.equal(isCustomMenuItem({ id: 'bad', name: '脚本', type: 'script', script: {} }), false);
+  assert.equal(isCustomMenuItem({ id: 'bad', name: '脚本', type: 'terminalFile', relativePath: 'x.ps1' }), false);
+  assert.equal(isCustomMenuItem({ id: 'bad', name: '消息', type: 'copilotMessage', message: ' ' }), false);
   assert.equal(validateMenuItemName('   '), '请输入菜单项名称。');
   assert.match(validateMenuItemName('x'.repeat(81)) ?? '', /不能超过/);
   assert.equal(validateMenuItemName(' 构建 '), undefined);

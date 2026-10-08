@@ -1,53 +1,67 @@
 // ------------------------------------------------------------------------
 // 名称：menu-view-provider.ts
-// 说明：承载底部 Panel WebviewView，并在扩展宿主与工具菜单页面间转发安全消息。
+// 说明：承载底部 Panel WebviewView，并校验资源管理器文件、工具管理和执行消息。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
-// 日期：2026-10-08
+// 日期：2026-10-09
 // 备注：页面只能按菜单项 ID 请求宿主执行已有工具。
 // ------------------------------------------------------------------------
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { promises as fileSystem } from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { CustomMenuItem } from './menu-item';
+import {
+  CustomMenuItem,
+  TerminalFileItem,
+  isCustomMenuItem,
+  isPathWithinFolder,
+  validateMenuItemName,
+} from './menu-item';
 import { MenuExecutor } from './menu-executor';
 import { MenuStore } from './menu-store';
 
-/** 面板管理流程的宿主回调。 */
-export interface MenuViewActions {
-  /** 打开全部工具项的管理流程。 */
-  manageItems(): Promise<void>;
-  /** 打开一个工具项的管理操作。 */
-  manageItem(itemId: string): Promise<void>;
-}
-
-/** 发送给 Webview 的菜单项只读视图。 */
-interface MenuItemViewModel {
-  /** 菜单项的稳定标识。 */
+/** 发给 Webview 的工具项只读视图。 */
+interface ToolItemViewModel {
+  /** 工具项的稳定标识。 */
   id: string;
-  /** 面板中显示的名称。 */
+  /** 工具箱中显示的名称。 */
   name: string;
-  /** 面板中显示的类型和执行目标。 */
+  /** 工具类别。 */
+  type: CustomMenuItem['type'];
+  /** 工具箱中显示的执行目标摘要。 */
   detail: string;
 }
 
-/** 管理底部 Panel WebviewView 的内容和消息。 */
+/** 管理底部 Panel WebviewView 的页面和受限消息。 */
 export class MenuViewProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
 
   /**
+   * 获取工具箱视图的当前可见状态。
+   * @returns 视图已解析且当前可见时为 true。
+   */
+  public get isVisible(): boolean {
+    return this.view?.visible ?? false;
+  }
+
+  /**
    * 创建底部工具面板提供器。
    * @param extensionContext VS Code 扩展上下文。
-   * @param store 当前工作区的菜单项存储。
-   * @param executor 已有菜单项执行器。
-   * @param actions 由宿主菜单提供器实现的管理回调。
+   * @param store 当前工作区的工具项存储。
+   * @param executor 三类工具项执行器。
    */
   constructor(
     private readonly extensionContext: vscode.ExtensionContext,
     private readonly store: MenuStore,
     private readonly executor: MenuExecutor,
-    private readonly actions: MenuViewActions,
-  ) {}
+  ) {
+    this.extensionContext.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        void this.sendState();
+      }),
+    );
+  }
 
   /**
    * 解析并初始化清单中声明的 WebviewView。
@@ -61,7 +75,7 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ): void {
     this.view = webviewView;
-    webviewView.title = '工具菜单';
+    webviewView.title = '工具箱';
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionContext.extensionUri, 'resources', 'media')],
@@ -77,18 +91,13 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
       }),
       webviewView.onDidChangeVisibility(() => {
         if (webviewView.visible) {
-          void this.sendItems();
+          void this.sendState();
         }
       }),
     );
   }
 
-  /** 展开并聚焦底部工具视图。 */
-  public show(): void {
-    this.view?.show(false);
-  }
-
-  /** 构造仅加载扩展本地脚本与样式的安全页面。 */
+  /** 构造仅加载扩展本地脚本与样式的安全页面。编辑字段在对话层内单行横向排列。 */
   private createHtml(webview: vscode.Webview): string {
     const nonce = randomBytes(16).toString('base64');
     const mediaDirectory = vscode.Uri.joinPath(this.extensionContext.extensionUri, 'resources', 'media');
@@ -102,34 +111,80 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource};">
   <link rel="stylesheet" href="${styleUri}">
-  <title>开发者工具箱</title>
+  <title>工具箱</title>
 </head>
 <body>
   <main class="panel-content">
-    <header class="panel-header">
-      <div class="heading-group">
-        <h1>开发者工具箱</h1>
-        <p id="item-count" class="description">正在加载工具...</p>
-      </div>
-      <button id="manage-all" class="icon-button primary-button" type="button" aria-label="管理工具" title="管理工具">
-        <span data-icon="settings"></span>
-      </button>
-    </header>
-    <p id="status-message" class="status-message" role="status" aria-live="polite" hidden></p>
-    <section id="tool-list" class="tool-list" aria-label="自定义工具"></section>
-    <section id="empty-state" class="empty-state" hidden>
-      <p>还没有自定义工具</p>
-      <button id="add-first-tool" class="icon-button secondary-button" type="button" aria-label="添加工具" title="添加工具">
-        <span data-icon="add"></span>
-      </button>
-    </section>
+    <div class="tool-groups" aria-label="工具类别">
+      <section class="tool-category-row" aria-label="运行">
+        <h2 class="category-label">运行</h2>
+        <div id="tools-terminalFile" class="tool-options" role="list" aria-label="运行工具"></div>
+      </section>
+      <section class="tool-category-row" aria-label="消息">
+        <h2 class="category-label">消息</h2>
+        <div id="tools-copilotMessage" class="tool-options" role="list" aria-label="消息工具"></div>
+        <button class="category-add-button" type="button" data-tool-type="copilotMessage" aria-label="新增消息工具" title="新增消息工具"></button>
+      </section>
+      <section class="tool-category-row" aria-label="命令">
+        <h2 class="category-label">命令</h2>
+        <div id="tools-vscodeCommand" class="tool-options" role="list" aria-label="命令工具"></div>
+        <button class="category-add-button" type="button" data-tool-type="vscodeCommand" aria-label="新增命令工具" title="新增命令工具"></button>
+      </section>
+    </div>
+    <p id="status-message" class="status-message" role="status" aria-live="polite" hidden>
+      <span id="status-icon" aria-hidden="true"></span>
+      <span id="status-text"></span>
+      <span id="status-countdown" aria-hidden="true"></span>
+    </p>
+    <div id="tool-dialog" class="dialog-backdrop" hidden>
+      <section class="tool-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <form id="tool-form" novalidate>
+          <h2 id="dialog-title">新增工具</h2>
+          <div class="form-line">
+            <label class="inline-field name-field" for="tool-name"><span>名称</span><input id="tool-name" name="name" type="text" maxlength="80" required autocomplete="off"></label>
+            <div id="terminal-fields" class="form-fields" hidden>
+              <div class="inline-field">
+                <span id="file-path-label">执行文件</span>
+                <div id="file-path" class="file-path-display" aria-labelledby="file-path-label" aria-describedby="file-help"></div>
+              </div>
+              <p id="file-help" class="field-help">通过资源管理器文件右键菜单添加；此处可修改运行项名称。</p>
+            </div>
+            <div id="command-fields" class="form-fields" hidden>
+              <label class="inline-field" for="command-id"><span>命令 ID</span><input id="command-id" name="commandId" type="text" list="command-suggestions" required autocomplete="off" title="可以输入尚未注册的命令 ID。" aria-describedby="command-help"></label>
+              <datalist id="command-suggestions"></datalist>
+              <p id="command-help" class="field-help">可以输入尚未注册的命令 ID。</p>
+            </div>
+            <div id="message-fields" class="form-fields" hidden>
+              <label class="inline-field message-field" for="copilot-message"><span>消息正文</span><textarea id="copilot-message" name="message" rows="1" required title="点击工具只会填入 Copilot Chat，不会自动发送。" aria-describedby="message-help"></textarea></label>
+              <p id="message-help" class="field-help">点击工具只会填入 Copilot Chat，不会自动发送。</p>
+            </div>
+            <div class="dialog-actions">
+              <button id="cancel-edit" class="secondary-button" type="button">取消</button>
+              <button id="save-tool" class="primary-button" type="submit">保存</button>
+            </div>
+          </div>
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+        </form>
+      </section>
+    </div>
+    <div id="confirm-dialog" class="dialog-backdrop" hidden>
+      <section class="tool-dialog confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <h2 id="confirm-title">删除工具</h2>
+        <p id="confirm-message"></p>
+        <p id="confirm-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button id="cancel-delete" class="secondary-button" type="button">取消</button>
+          <button id="confirm-delete" class="danger-button" type="button">删除</button>
+        </div>
+      </section>
+    </div>
   </main>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
   }
 
-  /** 只接受面板约定的有限动作，再委托给宿主管理器或执行器。 */
+  /** 只接受 Webview 协议中声明的动作，并在宿主校验数据后执行。 */
   private async handleMessage(message: unknown): Promise<void> {
     if (typeof message !== 'object' || message === null) {
       return;
@@ -138,57 +193,252 @@ export class MenuViewProvider implements vscode.WebviewViewProvider {
     const request = message as Record<string, unknown>;
     try {
       if (request.type === 'ready') {
-        await this.sendItems();
+        await this.sendState();
         return;
       }
 
-      if (request.type === 'manage') {
-        await this.actions.manageItems();
-        await this.sendItems();
+      if (request.type === 'reorder') {
+        const toolType = request.toolType;
+        const itemIds = request.itemIds;
+        if ((toolType !== 'terminalFile' && toolType !== 'vscodeCommand' && toolType !== 'copilotMessage')
+          || !Array.isArray(itemIds)
+          || !itemIds.every((itemId): itemId is string => typeof itemId === 'string')) {
+          throw new Error('工具项顺序无效，无法保存。');
+        }
+
+        await this.store.reorderItems(toolType, itemIds);
+        await this.sendState(undefined, 'reorder');
         return;
       }
 
-      if (typeof request.itemId !== 'string') {
+      if (request.type === 'save') {
+        const item = await this.buildItem(request);
+        await this.store.saveItem(item);
+        await this.sendState(`已保存“${item.name}”。`, 'save');
         return;
       }
 
-      const item = this.findItem(request.itemId);
-      if (!item) {
-        await this.sendItems('该工具项已不存在，请刷新列表。');
+      if (request.type === 'delete' && typeof request.itemId === 'string') {
+        await this.store.removeItem(request.itemId);
+        await this.sendState('工具已删除。', 'delete');
         return;
       }
 
-      if (request.type === 'run') {
+      if ((request.type === 'run' || request.type === 'getItem') && typeof request.itemId === 'string') {
+        const item = this.findItem(request.itemId);
+        if (!item) {
+          await this.sendState('该工具已不存在，请刷新列表。', undefined, 'error');
+          return;
+        }
+
+        if (request.type === 'getItem') {
+          await this.view?.webview.postMessage({ type: 'editItem', item });
+          return;
+        }
+
         await this.executor.execute(item);
-        await this.sendItems();
-      } else if (request.type === 'manageItem') {
-        await this.actions.manageItem(item.id);
-        await this.sendItems();
+        const resultMessage = item.type === 'copilotMessage'
+          ? '消息已填入 Copilot Chat，请检查后自行发送。'
+          : item.type === 'terminalFile'
+            ? '已在终端中启动文件。'
+            : `已执行命令“${item.commandId}”。`;
+        await this.sendState(resultMessage);
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      await this.sendItems(`操作失败：${detail}`);
+      await this.sendState(`操作失败：${detail}`, undefined, 'error');
     }
   }
 
-  /** 从当前工作区存储中查找菜单项，不信任 Webview 传回的目标内容。 */
+  /** 从工作区存储中查找工具项，不信任页面回传的执行目标。 */
   private findItem(itemId: string): CustomMenuItem | undefined {
     return this.store.getItems().find((item) => item.id === itemId);
   }
 
-  /** 将当前列表或错误状态发送给已打开的 Webview。 */
-  private async sendItems(message?: string): Promise<void> {
+  /** 校验表单字段并组装宿主侧工具项。 */
+  private async buildItem(request: Record<string, unknown>): Promise<CustomMenuItem> {
+    const name = typeof request.name === 'string' ? request.name.trim() : '';
+    const requestedItemId = typeof request.itemId === 'string' ? request.itemId : undefined;
+    const existingItem = requestedItemId
+      ? this.store.getItems().find((storedItem) => storedItem.id === requestedItemId)
+      : undefined;
+    if (requestedItemId && !existingItem) {
+      throw new Error('要编辑的工具已不存在，请刷新列表。');
+    }
+
+    const id = existingItem?.id ?? randomUUID();
+    if (existingItem && existingItem.type !== request.toolType) {
+      throw new Error('不能通过编辑将工具移动到其他类别。');
+    }
+    let item: CustomMenuItem;
+
+    if (request.toolType === 'terminalFile') {
+      const target = await this.validateWorkspaceFile(
+        typeof request.workspaceFolderUri === 'string' ? request.workspaceFolderUri : '',
+        typeof request.relativePath === 'string' ? request.relativePath : '',
+      );
+      item = { id, name, type: 'terminalFile', ...target };
+    } else if (request.toolType === 'vscodeCommand' && typeof request.commandId === 'string') {
+      item = { id, name, type: 'vscodeCommand', commandId: request.commandId.trim() };
+    } else if (request.toolType === 'copilotMessage' && typeof request.message === 'string') {
+      item = { id, name, type: 'copilotMessage', message: request.message.trim() };
+    } else {
+      throw new Error('工具类型或表单字段无效。');
+    }
+
+    if (!isCustomMenuItem(item)) {
+      throw new Error('请完整填写工具名称和执行目标。');
+    }
+
+    const nameError = validateMenuItemName(item.name);
+    if (nameError) {
+      throw new Error(nameError);
+    }
+
+    return item;
+  }
+
+  /** 将资源管理器提供的文件 URI 解析为当前工作区内的相对路径。 */
+  private async resolveWorkspaceFile(uri: vscode.Uri): Promise<Pick<TerminalFileItem, 'workspaceFolderUri' | 'relativePath'>> {
+    if (uri.scheme !== 'file') {
+      throw new Error('只能添加本地工作区中的文件。');
+    }
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    if (!workspaceFolder || workspaceFolder.uri.scheme !== 'file') {
+      throw new Error('请从当前打开的本地工作区添加文件。');
+    }
+
+    return this.validateWorkspaceFile(workspaceFolder.uri.toString(), path.relative(workspaceFolder.uri.fsPath, uri.fsPath));
+  }
+
+  /** 校验文件属于当前本地工作区；允许任意扩展名，拒绝目录和越界路径。 */
+  private async validateWorkspaceFile(workspaceFolderUri: string, relativePath: string): Promise<Pick<TerminalFileItem, 'workspaceFolderUri' | 'relativePath'>> {
+    const workspaceFolder = this.findLocalWorkspace(workspaceFolderUri);
+    if (!workspaceFolder || relativePath.trim().length === 0) {
+      throw new Error('请从当前本地工作区文件中添加运行项。');
+    }
+
+    const rootPath = await fileSystem.realpath(workspaceFolder.uri.fsPath);
+    const candidatePath = path.resolve(rootPath, relativePath);
+    if (!isPathWithinFolder(rootPath, candidatePath)) {
+      throw new Error('文件路径超出了工作区范围。');
+    }
+
+    let realFilePath: string;
+    try {
+      realFilePath = await fileSystem.realpath(candidatePath);
+    } catch {
+      throw new Error('文件不存在，或无法读取。');
+    }
+
+    const fileInfo = await fileSystem.stat(realFilePath);
+    if (!isPathWithinFolder(rootPath, realFilePath) || !fileInfo.isFile()) {
+      throw new Error('只能添加工作区中的文件，不能添加文件夹。');
+    }
+
+    return {
+      workspaceFolderUri: workspaceFolder.uri.toString(),
+      relativePath: path.relative(rootPath, realFilePath).replace(/\\/g, '/'),
+    };
+  }
+
+  /** 为右键添加的文件生成类别内不重复、且不超过名称长度上限的显示名。 */
+  private allocateToolName(baseName: string, usedNames: Set<string>): string {
+    const trimmed = baseName.trim().slice(0, 80) || '未命名文件';
+    if (!usedNames.has(trimmed.toLocaleLowerCase())) {
+      return trimmed;
+    }
+
+    for (let index = 2; index < 1000; index += 1) {
+      const suffix = ` (${index})`;
+      const candidate = `${trimmed.slice(0, Math.max(1, 80 - suffix.length))}${suffix}`;
+      if (!usedNames.has(candidate.toLocaleLowerCase())) {
+        return candidate;
+      }
+    }
+
+    throw new Error('无法生成不重复的工具名称。');
+  }
+
+  /**
+   * 将资源管理器提供的本地工作区文件添加为运行项。
+   * @param resources 资源管理器右键命令提供的资源 URI。
+   * @returns 完成添加并刷新工具列表后的异步操作；部分失败会在状态区反馈。
+   */
+  public async addWorkspaceFiles(resources: vscode.Uri[]): Promise<void> {
+    try {
+      if (resources.length === 0) {
+        throw new Error('未获取到文件，请从资源管理器文件右键菜单添加。');
+      }
+
+      const usedNames = new Set(
+        this.store.getItems()
+          .filter((item) => item.type === 'terminalFile')
+          .map((item) => item.name.trim().toLocaleLowerCase()),
+      );
+      const addedNames: string[] = [];
+      const failures: string[] = [];
+      for (const resource of resources) {
+        try {
+          const target = await this.resolveWorkspaceFile(resource);
+          const name = this.allocateToolName(path.basename(target.relativePath), usedNames);
+          usedNames.add(name.toLocaleLowerCase());
+          const item: TerminalFileItem = { id: randomUUID(), name, type: 'terminalFile', ...target };
+          const nameError = validateMenuItemName(item.name);
+          if (nameError) {
+            throw new Error(nameError);
+          }
+          await this.store.saveItem(item);
+          addedNames.push(name);
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      if (addedNames.length === 0) {
+        throw new Error(failures[0] ?? '没有可添加的文件。');
+      }
+
+      const summary = addedNames.length === 1 ? `已添加“${addedNames[0]}”。` : `已添加 ${addedNames.length} 个运行项。`;
+      const result = failures.length === 0 ? summary : `${summary}另有 ${failures.length} 个文件未添加：${failures[0]}`;
+      await this.sendState(result);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await this.sendState(`操作失败：${detail}`, undefined, 'error');
+    }
+  }
+
+  /** 按 URI 查找当前打开的本地工作区。 */
+  private findLocalWorkspace(workspaceFolderUri: string): vscode.WorkspaceFolder | undefined {
+    return vscode.workspace.workspaceFolders?.find((folder) =>
+      folder.uri.scheme === 'file' && folder.uri.toString() === workspaceFolderUri,
+    );
+  }
+
+  /** 将类别列表和命令建议发送给面板。 */
+  private async sendState(
+    message?: string,
+    operation?: 'save' | 'delete' | 'reorder',
+    level: 'success' | 'error' | 'info' = operation ? 'success' : 'info',
+  ): Promise<void> {
     if (!this.view) {
       return;
     }
 
     try {
-      const items: MenuItemViewModel[] = this.store.getItems().map((item) => ({
+      const items: ToolItemViewModel[] = this.store.getItems().map((item) => ({
         id: item.id,
         name: item.name,
-        detail: item.type === 'script' ? item.script.relativePath : item.commandId,
+        type: item.type,
+        detail: item.type === 'terminalFile'
+          ? item.relativePath
+          : item.type === 'vscodeCommand'
+            ? item.commandId
+            : item.message,
       }));
-      await this.view.webview.postMessage({ type: 'items', items, message });
+      const commands = await vscode.commands.getCommands();
+      await this.view.webview.postMessage({ type: 'state', items, commands, message, operation, level });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       await this.view.webview.postMessage({ type: 'error', message: detail });

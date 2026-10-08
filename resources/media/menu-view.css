@@ -1,20 +1,27 @@
 /*
  * ------------------------------------------------------------------------
  * 名称：menu-view.css
- * 说明：为底部工具面板提供紧凑的 VS Code 主题适配布局和菜单行交互样式。
+ * 说明：为底部工具面板提供紧凑布局；编辑表单在对话层内单行横向排列。
  * 作者：Lion
  * 邮箱：chengbin@3578.cn
- * 日期：2026-10-08
+ * 日期：2026-10-09
  * 备注：菜单状态跟随 VS Code 明暗主题。
  * ------------------------------------------------------------------------
  */
 
 :root {
+  height: 100%;
   --bg: var(--vscode-sideBar-background);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -27,47 +34,75 @@ body {
 }
 
 .panel-content {
-  min-width: 0;
-  padding: 8px 16px 10px;
-}
-
-.panel-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.heading-group {
+  height: 100%;
   min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 4px 8px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+.tool-groups {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.description,
-.tool-detail {
-  color: var(--vscode-descriptionForeground);
+.tool-category-row {
+  display: flex;
+  height: auto;
+  min-height: 34px;
+  max-height: 60px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+}
+
+.file-path-display {
+  width: 100%;
+  height: 24px;
+  min-width: 160px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--vscode-input-border, rgb(60,60,60)) 86%, rgb(0,0,0));
+  border-radius: 4px;
+  color: var(--vscode-input-foreground);
+  background: color-mix(in srgb, var(--bg) 92%, rgb(0,0,0));
   font-size: 12px;
-  line-height: 1.45;
+  font-weight: 400;
+  line-height: 22px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.description {
-  margin: 2px 0 0;
+body.vscode-light .file-path-display {
+  border-color: color-mix(in srgb, var(--vscode-input-border, rgb(200,200,200)) 55%, rgb(255,255,255));
+  background: color-mix(in srgb, var(--vscode-input-background) 93%, rgb(217,217,217));
+}
+
+.category-label {
+  width: 32px;
+  min-width: 32px;
+  margin: 0;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: left;
 }
 
 button {
-  min-height: 24px;
+  min-height: 22px;
   border: 0;
   border-radius: 3px;
-  padding: 3px 8px;
+  padding: 0 8px;
   color: var(--vscode-button-foreground);
   background: var(--vscode-button-background);
-  font: inherit;
+  font-family: inherit;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -82,16 +117,59 @@ button:focus-visible {
 
 .primary-button {
   flex: 0 0 auto;
+  font-weight: 400;
 }
 
-.icon-button {
+.category-add-button {
   display: inline-grid;
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  min-height: 28px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 auto;
   place-items: center;
   padding: 0;
+  color: var(--vscode-foreground);
+  background: transparent;
+}
+
+.category-add-button:hover {
+  background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+}
+
+.secondary-button {
+  color: var(--vscode-button-secondaryForeground);
+  background: rgba(255,255,255,0.08);
+}
+
+body.vscode-light .secondary-button {
+  color: rgb(47,47,47);
+  background: rgba(90,90,90,0.14);
+}
+
+.secondary-button:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+body.vscode-light .secondary-button:hover {
+  background: rgba(90,90,90,0.20);
+}
+
+.danger-button {
+  color: rgb(255,255,255);
+  background: rgb(161,51,45);
+}
+
+.danger-button:hover {
+  background: rgb(180,58,51);
+}
+
+body.vscode-light .danger-button {
+  background: rgb(169,48,41);
+}
+
+body.vscode-light .danger-button:hover {
+  background: rgb(151,43,37);
 }
 
 .icon {
@@ -101,144 +179,384 @@ button:focus-visible {
   flex: 0 0 auto;
 }
 
-.icon-play {
-  width: 14px;
-  height: 14px;
-}
-
-.icon-more {
-  width: 18px;
-  height: 18px;
-}
-
-.tool-list {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.tool-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0;
-  min-width: 0;
-  padding: 0 0 0 2px;
-  border-radius: 4px;
-}
-
-.tool-main-button {
+.tool-options {
   display: flex;
-  width: 100%;
+  flex: 1 1 0;
   min-width: 0;
-  min-height: 32px;
   align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: 4px 0 0 4px;
+  align-content: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 59px;
+  overflow: hidden;
+  overscroll-behavior-x: contain;
+}
+
+.tool-option {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+  max-width: 220px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 3px;
+  border: 1px solid color-mix(in srgb, var(--vscode-foreground) 16%, transparent);
+  border-radius: 999px;
+  cursor: grab;
+}
+
+.tool-option.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.tool-option.drop-before,
+.tool-option.drop-after {
+  position: relative;
+}
+
+.tool-option.drop-before::before,
+.tool-option.drop-after::after {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--vscode-focusBorder);
+  content: '';
+}
+
+.tool-option.drop-before::before {
+  left: -4px;
+}
+
+.tool-option.drop-after::after {
+  right: -4px;
+}
+
+.tool-option-run {
+  display: block;
+  max-width: 172px;
+  min-width: 32px;
+  min-height: 22px;
+  overflow: hidden;
+  padding: 0 5px;
+  border-radius: 999px;
   color: var(--vscode-foreground);
   background: transparent;
-  text-align: left;
-}
-
-.tool-text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.tool-name,
-.tool-detail {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tool-name {
-  font-size: 12px;
+.tool-option-run.long-label {
+  font-size: 10px;
 }
 
-.tool-detail {
-  font-size: 11px;
+.tool-option-run.very-long-label {
+  font-size: 9px;
+}
+
+.tool-option-run:hover {
+  background: rgb(68,68,68);
+}
+
+.tool-option-run:active,
+.tool-option-run.pressed {
+  background: rgb(57,57,57);
+}
+
+body.vscode-light .tool-option-run:hover {
+  background: rgb(211,211,211);
+}
+
+body.vscode-light .tool-option-run:active,
+body.vscode-light .tool-option-run.pressed {
+  background: rgb(198,198,198);
+}
+
+.tool-actions {
+  display: flex;
+  align-items: center;
 }
 
 .tool-action-button {
   display: inline-grid;
-  width: 32px;
-  min-width: 32px;
-  min-height: 32px;
+  width: 20px;
+  min-width: 20px;
+  height: 22px;
+  min-height: 22px;
   place-items: center;
   padding: 0;
-  border-radius: 0 3px 3px 0;
+  border-radius: 999px;
   color: var(--vscode-foreground);
   background: transparent;
 }
 
-.tool-row:hover {
-  background: rgb(230, 230, 230);
-}
-
 .tool-action-button:hover {
-  background: rgb(220, 220, 220);
-}
-
-.tool-row.main-pressed {
-  background: rgb(222, 222, 222);
+  background: rgb(91,91,91);
 }
 
 .tool-action-button.pressed {
-  background: rgb(212, 212, 212);
+  background: rgb(76,76,76);
 }
 
-body.vscode-dark .tool-row:hover {
-  background: rgb(50, 50, 50);
+body.vscode-light .tool-action-button:hover {
+  background: rgb(190,190,190);
 }
 
-body.vscode-dark .tool-action-button:hover {
-  background: rgb(61, 61, 61);
-}
-
-body.vscode-dark .tool-row.main-pressed {
-  background: rgb(47, 47, 47);
-}
-
-body.vscode-dark .tool-action-button.pressed {
-  background: rgb(56, 56, 56);
+body.vscode-light .tool-action-button.pressed {
+  background: rgb(174,174,174);
 }
 
 .status-message {
-  margin: 0 0 8px;
-  color: var(--vscode-errorForeground, rgb(180, 35, 24));
-  font-size: 12px;
-}
-
-.empty-state {
   display: flex;
-  min-height: 64px;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--vscode-descriptionForeground);
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 16px;
 }
 
-.empty-state[hidden],
-.tool-list[hidden],
+.status-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.status-success,
+.status-error,
+.status-info {
+  color: rgb(79,220,138);
+}
+
+body.vscode-light .status-success,
+body.vscode-light .status-error,
+body.vscode-light .status-info {
+  color: rgb(31,122,63);
+}
+
 .status-message[hidden] {
   display: none;
 }
 
-.empty-state p {
+.dialog-backdrop {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  align-items: start;
+  justify-content: center;
+  padding: 0 8px;
+  background: color-mix(in srgb, rgb(0,0,0) 30%, transparent);
+}
+
+.dialog-backdrop[hidden] {
+  display: none;
+}
+
+.tool-dialog {
+  width: min(760px, calc(100vw - 16px));
+  max-height: 112px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--vscode-editorWidget-background, var(--bg)) 90%, var(--bg));
+  box-shadow: 0 4px 20px color-mix(in srgb, rgb(0,0,0) 30%, transparent);
+}
+
+body.vscode-light .tool-dialog {
+  background: color-mix(in srgb, var(--bg) 76%, rgb(216,216,216));
+}
+
+body.vscode-dark .tool-dialog {
+  background: color-mix(in srgb, var(--bg) 83%, rgb(0,0,0));
+}
+
+.tool-dialog h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 对话框标题单独放在字段行上方。 */
+#dialog-title {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+/* 字段和按钮保持同一行，空间不足时只允许横向滚动。 */
+.tool-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min-content;
+}
+
+.form-line,
+.form-fields {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.form-fields {
+  flex: 2 1 auto;
+}
+
+.form-fields[hidden] {
+  display: none;
+}
+
+.inline-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 2px;
+  flex: 1 1 140px;
+  min-width: 0;
+  margin: 0;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.inline-field > span {
+  flex: 0 0 auto;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 14px;
+}
+
+.name-field {
+  flex: 1 1 140px;
+}
+
+.message-field {
+  flex: 2 1 220px;
+}
+
+.tool-dialog input,
+.tool-dialog select,
+.tool-dialog textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 24px;
+  min-width: 88px;
+  min-height: 24px;
+  max-height: 24px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--vscode-input-border, rgb(60,60,60)) 86%, rgb(0,0,0));
+  border-radius: 4px;
+  color: var(--vscode-input-foreground);
+  background: color-mix(in srgb, var(--bg) 92%, rgb(0,0,0));
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 22px;
+  resize: none;
+  overflow: hidden;
+}
+
+.tool-dialog textarea {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.vscode-light .tool-dialog input,
+body.vscode-light .tool-dialog select,
+body.vscode-light .tool-dialog textarea {
+  border-color: color-mix(in srgb, var(--vscode-input-border, rgb(200,200,200)) 55%, rgb(255,255,255));
+  background: color-mix(in srgb, var(--vscode-input-background) 93%, rgb(217,217,217));
+}
+
+.tool-dialog input:focus,
+.tool-dialog select:focus,
+.tool-dialog textarea:focus {
+  border-color: var(--vscode-focusBorder);
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 0;
+}
+
+.tool-dialog button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.tool-dialog button:disabled {
+  color: rgba(255,255,255,0.68);
+  background: color-mix(in srgb, rgba(255,255,255,0.08) 52%, var(--bg));
+  cursor: default;
+}
+
+body.vscode-light .tool-dialog button:disabled {
+  color: rgba(255,255,255,0.78);
+  background: rgb(196,196,196);
+}
+
+.field-help {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.form-error {
+  margin: 0;
+  overflow: hidden;
+  color: rgb(255,123,114);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.form-error[hidden] {
+  display: none;
+}
+
+body.vscode-light .form-error {
+  color: rgb(180,35,24);
+}
+
+.dialog-actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 6px;
   margin: 0;
 }
 
-.secondary-button {
-  color: var(--vscode-button-secondaryForeground);
-  background: var(--vscode-button-secondaryBackground);
+.confirm-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, calc(100vw - 16px));
+  max-height: none;
+  overflow: visible;
 }
 
-.secondary-button:hover {
-  background: var(--vscode-button-secondaryHoverBackground);
+.confirm-dialog > p:not(.form-error) {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 

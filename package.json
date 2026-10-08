@@ -1,7 +1,7 @@
 {
   "name": "vscode-tools",
-  "displayName": "开发者工具箱",
-  "description": "从状态栏快速运行工作区 PowerShell 脚本和 VS Code 命令。",
+  "displayName": "工具箱",
+  "description": "在底部工具箱管理工作区文件、VS Code 命令和 Copilot 消息。",
   "version": "0.1.0",
   "publisher": "sengbin",
   "license": "Apache-2.0",
@@ -17,8 +17,8 @@
     "powershell",
     "commands",
     "productivity",
-    "status bar",
-    "script"
+    "copilot chat",
+    "workspace scripts"
   ],
   "repository": {
     "type": "git",
@@ -35,19 +35,22 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscodeTools.openMenu",
-        "title": "打开工具菜单",
-        "category": "开发者工具箱"
-      },
-      {
-        "command": "vscodeTools.manageItems",
-        "title": "管理自定义工具",
-        "category": "开发者工具箱"
+        "command": "vscodeTools.addWorkspaceFile",
+        "title": "添加到工具箱运行项"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "vscodeTools.addWorkspaceFile",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "7_modification"
+        }
+      ]
+    },
     "icons": {
       "vscode-tools-logo": {
-        "description": "开发者工具箱状态栏图标",
+        "description": "工具箱状态栏图标",
         "default": {
           "fontPath": "./resources/vscode-tools-icons.woff",
           "fontCharacter": "\\E001"
@@ -58,7 +61,7 @@
       "panel": [
         {
           "id": "vscodeToolsPanel",
-          "title": "开发者工具箱",
+          "title": "工具箱",
           "icon": "resources/logo.svg"
         }
       ]
@@ -68,25 +71,23 @@
         {
           "type": "webview",
           "id": "vscodeTools.menuView",
-          "name": "工具菜单",
+          "name": "工具箱",
           "icon": "resources/logo.svg"
         }
       ]
     }
   },
   "scripts": {
-    "generate:icons": "node tools/generate-statusbar-icon.js",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node --test out/test/*.test.js",
-    "vscode:prepublish": "npm run generate:icons && npm run compile",
+    "vscode:prepublish": "npm run compile",
     "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/vscode": "1.90.0",
     "@vscode/vsce": "^4.0.0",
-    "fantasticon": "^4.1.0",
     "typescript": "^5.9.3"
   }
 }

@@ -1,4 +1,4 @@
-# 工具箱
+# VS Code 工具箱
 
 `vscode-tools` 是一个 VS Code 扩展，在底部 Panel 提供工作区文件、VS Code 命令和 Copilot Chat 消息工具箱。
 

@@ -1,6 +1,6 @@
 {
   "name": "vscode-tools",
-  "displayName": "工具箱",
+  "displayName": "VS Code 工具箱",
   "description": "在底部工具箱管理工作区文件、VS Code 命令和 Copilot 消息。",
   "version": "0.1.0",
   "publisher": "sengbin",

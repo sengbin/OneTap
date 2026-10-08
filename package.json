@@ -22,12 +22,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sengbin/vscode-tools.git"
+    "url": "https://github.com/sengbin/vscode-toolbox.git"
   },
   "bugs": {
-    "url": "https://github.com/sengbin/vscode-tools/issues"
+    "url": "https://github.com/sengbin/vscode-toolbox/issues"
   },
-  "homepage": "https://github.com/sengbin/vscode-tools#readme",
+  "homepage": "https://github.com/sengbin/vscode-toolbox#readme",
   "main": "./out/src/extension.js",
   "activationEvents": [
     "onStartupFinished"

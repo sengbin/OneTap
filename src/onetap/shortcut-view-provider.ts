@@ -128,14 +128,12 @@ export class ShortcutViewProvider implements vscode.WebviewViewProvider {
         <div id="shortcuts-terminalFile" class="shortcut-options" role="list" aria-label="运行工具"></div>
       </section>
       <section class="shortcut-category-row" aria-label="消息">
-        <h2 class="category-label">消息</h2>
+        <button class="category-add-button" type="button" data-shortcut-type="copilotMessage" aria-label="新增消息工具" title="新增消息工具"><span>消息</span></button>
         <div id="shortcuts-copilotMessage" class="shortcut-options" role="list" aria-label="消息工具"></div>
-        <button class="category-add-button" type="button" data-shortcut-type="copilotMessage" aria-label="新增消息工具" title="新增消息工具"></button>
       </section>
       <section class="shortcut-category-row" aria-label="命令">
-        <h2 class="category-label">命令</h2>
+        <button class="category-add-button" type="button" data-shortcut-type="vscodeCommand" aria-label="新增命令工具" title="新增命令工具"><span>命令</span></button>
         <div id="shortcuts-vscodeCommand" class="shortcut-options" role="list" aria-label="命令工具"></div>
-        <button class="category-add-button" type="button" data-shortcut-type="vscodeCommand" aria-label="新增命令工具" title="新增命令工具"></button>
       </section>
     </div>
     <p id="status-message" class="status-message" role="status" aria-live="polite" hidden>
@@ -146,7 +144,13 @@ export class ShortcutViewProvider implements vscode.WebviewViewProvider {
     <div id="shortcut-dialog" class="dialog-backdrop" hidden>
       <section class="shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
         <form id="shortcut-form" novalidate>
-          <h2 id="dialog-title">新增工具</h2>
+          <div class="dialog-header">
+            <h2 id="dialog-title">新增工具</h2>
+            <div class="dialog-actions">
+              <button id="cancel-edit" class="secondary-button" type="button">取消</button>
+              <button id="save-shortcut" class="primary-button" type="submit">保存</button>
+            </div>
+          </div>
           <div class="form-line">
             <label class="inline-field name-field" for="shortcut-name"><span>名称</span><input id="shortcut-name" name="name" type="text" maxlength="80" required autocomplete="off"></label>
             <div id="terminal-fields" class="form-fields" hidden>
@@ -164,10 +168,6 @@ export class ShortcutViewProvider implements vscode.WebviewViewProvider {
             <div id="message-fields" class="form-fields" hidden>
               <label class="inline-field message-field" for="copilot-message"><span>消息正文</span><textarea id="copilot-message" name="message" rows="1" required title="点击工具只会填入 Copilot Chat，不会自动发送。" aria-describedby="message-help"></textarea></label>
               <p id="message-help" class="field-help">点击工具只会填入 Copilot Chat，不会自动发送。</p>
-            </div>
-            <div class="dialog-actions">
-              <button id="cancel-edit" class="secondary-button" type="button">取消</button>
-              <button id="save-shortcut" class="primary-button" type="submit">保存</button>
             </div>
           </div>
           <p id="form-error" class="form-error" role="alert" hidden></p>

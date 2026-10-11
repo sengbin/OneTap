@@ -1,6 +1,6 @@
 // ------------------------------------------------------------------------
 // 名称：shortcut-executor.ts
-// 说明：运行从资源管理器添加的工作区文件、VS Code 命令或预填 Copilot 消息。
+// 说明：运行从资源管理器添加的工作区文件、VS Code 命令或向 Copilot 聊天输入框追加消息。
 // 作者：Lion
 // 邮箱：chengbin@3578.cn
 // 日期：2026-10-09
@@ -13,6 +13,9 @@ import { resolveFileInWorkspace } from './workspace-file';
 
 /** 扩展创建的 PowerShell 集成终端名称。 */
 const TERMINAL_NAME = '工具箱 PowerShell';
+
+/** 粘贴后恢复剪贴板前的等待时间。 */
+const CLIPBOARD_RESTORE_DELAY_MS = 150;
 
 /** 执行工具箱中的三类工具项。 */
 export class ShortcutExecutor {
@@ -32,14 +35,27 @@ export class ShortcutExecutor {
     }
 
     if (item.type === 'copilotMessage') {
-      await vscode.commands.executeCommand('workbench.action.chat.open', {
-        query: item.message,
-        isPartialQuery: true,
-      });
+      await this.appendChatMessage(item.message);
       return;
     }
 
     await this.executeWorkspaceFile(item);
+  }
+
+  /** 追加消息到聊天输入框末尾；VS Code 不提供读取输入框的接口，只能经剪贴板粘贴，粘贴后恢复原剪贴板。 */
+  private async appendChatMessage(message: string): Promise<void> {
+    const originalClipboard = await vscode.env.clipboard.readText();
+    try {
+      // 不带 query 打开只聚焦输入框，不会改动已有内容。
+      await vscode.commands.executeCommand('workbench.action.chat.open');
+      await vscode.commands.executeCommand('cursorBottom');
+      await vscode.env.clipboard.writeText(`${message}\n`);
+      await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
+      // 粘贴由渲染进程异步读取剪贴板，稍等后再恢复。
+      await new Promise((resolve) => setTimeout(resolve, CLIPBOARD_RESTORE_DELAY_MS));
+    } finally {
+      await vscode.env.clipboard.writeText(originalClipboard);
+    }
   }
 
   /** 校验工作区文件位置后，将调用发送至专用终端，不按扩展名拒绝。 */

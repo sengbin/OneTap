@@ -70,7 +70,7 @@ const statusIcon = createIcon('message');
 statusIcon.classList.add('status-icon');
 statusIconContainer.append(statusIcon);
 document.querySelectorAll('.category-add-button').forEach((button) => {
-  button.append(createIcon('add'));
+  button.prepend(createIcon('add'));
   button.addEventListener('click', () => openShortcutDialog(undefined, button.dataset.shortcutType));
 });
 document.getElementById('cancel-edit').addEventListener('click', closeShortcutDialog);

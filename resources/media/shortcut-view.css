@@ -85,9 +85,11 @@ body.vscode-light .file-path-display {
 }
 
 .category-label {
-  width: 32px;
-  min-width: 32px;
+  /* 左侧留出与新增按钮图标等宽的空位，使“运行”文字与“消息”“命令”左对齐。 */
+  width: 56px;
+  min-width: 56px;
   margin: 0;
+  padding-left: 24px;
   color: var(--vscode-foreground);
   font-size: 12px;
   font-weight: 600;
@@ -122,16 +124,20 @@ button:focus-visible {
 }
 
 .category-add-button {
-  display: inline-grid;
-  width: 24px;
-  min-width: 24px;
+  display: inline-flex;
+  width: 56px;
+  min-width: 56px;
   height: 24px;
   min-height: 24px;
   flex: 0 0 auto;
-  place-items: center;
-  padding: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
   color: var(--vscode-foreground);
   background: transparent;
+  font-weight: 600;
+  line-height: 1;
+  text-align: left;
 }
 
 .category-add-button:hover {
@@ -401,7 +407,20 @@ body.vscode-dark .shortcut-dialog {
   white-space: nowrap;
 }
 
-/* 对话框标题单独放在字段行上方。 */
+/* 标题和操作按钮同处顶部一行，按钮靠右。 */
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* 标题字形顶端比行框顶端低约 3px，按钮同步下移以对齐文字顶端。 */
+.dialog-header .dialog-actions {
+  margin-top: 3px;
+}
+
+/* 对话框标题放在顶部行左侧。 */
 #dialog-title {
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
